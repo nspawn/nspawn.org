@@ -1,5 +1,5 @@
-baseURL = "https://example.com"
-title   = "Hello Friend NG"
+baseURL = "/"
+title   = "nspawn.org"
 
 DefaultContentLanguage = "en"
 
@@ -37,7 +37,7 @@ disableHugoGeneratorInject = false
   posts = "/posts/:year/:month/:title/"
 
 [author]
-  name = "Jane Doe"
+  name = "the nspawn team"
 
 [blackfriday]
   hrefTargetBlank = true
@@ -57,7 +57,7 @@ disableHugoGeneratorInject = false
   keywords = ""
   images = [""]
 
-  homeSubtitle = "Hello Friend NG"
+  homeSubtitle = "nspawn.org"
 
   # Prefix of link to the git commit detail page. GitInfo must be enabled.
   # gitUrl = ""
@@ -77,35 +77,26 @@ disableHugoGeneratorInject = false
   themeColor = "#252627"
 
   [params.logo]
-    logoText     = "$ cd /home/"
+    logoText     = "machinectl pull-tar"
     logoHomeLink = "/"
 
   # Social icons
   [[params.social]]
     name = "twitter"
-    url  = "https://twitter.com/"
+    url  = "https://twitter.com/nspawnorg"
 
   [[params.social]]
     name = "email"
-    url  = "mailto:nobody@example.com"
+    url  = "mailto:nspawn@nspawn.org"
 
   [[params.social]]
     name = "github"
-    url  = "https://github.com/"
-
-  [[params.social]]
-    name = "linkedin"
-    url  = "https://www.linkedin.com/"
+    url  = "https://github.com/nspawn"
 
 [languages]
   [languages.en]
-    subtitle  = "Hello Friend NG Theme"
+    subtitle  = "nspawn.org"
     weight    = 1
-    copyright = '<a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>'
-
-  [languages.fr]
-    subtitle  = "Hello Friend NG Theme"
-    weight    = 2
     copyright = '<a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>'
 
 [menu]

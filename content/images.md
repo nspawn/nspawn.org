@@ -12,6 +12,10 @@ draft: true
 | CentOS 6           | tar  | [centos6-tar](/storage/centos/6/image.tar.xz)              |
 | CentOS 7           | raw  | [centos7-raw](/storage/centos/7/image.raw.xz)              |
 | CentOS 7           | tar  | [centos7-tar](/storage/centos/7/image.tar.xz)              |
+| Debian jessie      | raw  | [jessie-raw](/storage/debian/jessie/image.raw.xz) | 
+| Debian jessie      | tar  | [jessie-tar](/storage/debian/jessie/image.tar.xz) | 
+| Debian stretch     | raw  | [stretch-raw](/storage/debian/stretch/image.raw.xz) | 
+| Debian stretch     | tar  | [stretch-tar](/storage/debian/stretch/image.tar.xz) | 
 | Fedora 28          | raw  | [fedora28-raw](/storage/fedora/28/image.raw.xz)              |
 | Fedora 28          | tar  | [fedora28-tar](/storage/fedora/28/image.tar.xz)              |
 | Fedora 29          | raw  | [fedora29-raw](/storage/fedora/29/image.raw.xz)              |

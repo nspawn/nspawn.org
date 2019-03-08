@@ -1,7 +1,7 @@
 ---
 title: "Contact"
 date: 2019-03-08T22:37:01+01:00
-draft: true
+draft: false
 ---
 
 **Contact**

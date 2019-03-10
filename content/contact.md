@@ -6,10 +6,10 @@ draft: false
 
 **Contact**
 
-Christian Rebischke
-Marie-Hedwigstraße 13
-Apartment 321
-38678 Clausthal-Zellerfeld
+Christian Rebischke  
+Marie-Hedwigstraße 13  
+Apartment 321  
+38678 Clausthal-Zellerfeld  
 Germany
 
 **Mail**

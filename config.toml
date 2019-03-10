@@ -101,10 +101,6 @@ disableHugoGeneratorInject = false
 
 [menu]
   [[menu.main]]
-    identifier = "about"
-    name       = "About"
-    url        = "about/"
-  [[menu.main]]
     identifier = "images"
     name       = "Images"
     url        = "images/"
@@ -113,6 +109,10 @@ disableHugoGeneratorInject = false
     name       = "Posts"
     url        = "posts/"
   [[menu.main]]
-    identifier = "tutorial"
-    name       = "Tutorial"
-    url        = "tutorial/"
+    identifier = "faq"
+    name       = "FAQ"
+    url        = "faq/"
+  [[menu.main]]
+    identifier = "contact"
+    name       = "Contact"
+    url        = "contact/"

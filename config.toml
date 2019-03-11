@@ -77,7 +77,7 @@ disableHugoGeneratorInject = false
   themeColor = "#252627"
 
   [params.logo]
-    logoText     = "machinectl pull-tar"
+    logoText     = "nspawn init"
     logoHomeLink = "/"
 
   # Social icons

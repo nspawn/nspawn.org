@@ -6,9 +6,7 @@ draft: false
 
 | Linux Distribution | Type | Download Link |
 | ------------------ | ---- | ------------- |
-| Arch Linux         | raw  | [archlinux-raw](/storage/archlinux/archlinux/raw/image.raw.xz)              |
 | Arch Linux         | tar  | [archlinux-tar](/storage/archlinux/archlinux/raw/image.tar.xz)              |
-| CentOS 7           | raw  | [centos7-raw](/storage/centos/7/raw/image.raw.xz)              |
 | CentOS 7           | tar  | [centos7-tar](/storage/centos/7/tar/image.tar.xz)              |
 | Debian jessie      | raw  | [jessie-raw](/storage/debian/jessie/raw/image.raw.xz) | 
 | Debian jessie      | tar  | [jessie-tar](/storage/debian/jessie/tar/image.tar.xz) | 

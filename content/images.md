@@ -4,6 +4,9 @@ date: 2019-03-07T19:06:09+01:00
 draft: false
 ---
 
+All our images have been signed with our master key: [575D E887 94A4 5D84 456D  8897 A232 A512 E7D0 BA83](https://nspawn.org/storage/masterkey.pgp)
+
+
 | Linux Distribution | Type | Download Link |
 | ------------------ | ---- | ------------- |
 | Arch Linux         | tar  | [archlinux-tar](/storage/archlinux/archlinux/raw/image.tar.xz)              |

@@ -6,7 +6,7 @@ draft: false
 
 | Linux Distribution | Type | Download Link |
 | ------------------ | ---- | ------------- |
-| Arch linux         | raw  | [archlinux-raw](/storage/archlinux/archlinux/raw/archlinux.raw.xz)              |
+| Arch Linux         | raw  | [archlinux-raw](/storage/archlinux/archlinux/raw/archlinux.raw.xz)              |
 | Arch Linux         | tar  | [archlinux-tar](/storage/archlinux/archlinux/raw/archlinux.tar.xz)              |
 | CentOS 7           | raw  | [centos7-raw](/storage/centos/7/raw/centos7.raw.xz)              |
 | CentOS 7           | tar  | [centos7-tar](/storage/centos/7/tar/centos7.tar.xz)              |

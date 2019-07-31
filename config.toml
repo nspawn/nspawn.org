@@ -1,50 +1,29 @@
 baseURL = "/"
-title   = "nspawn.org"
-
-DefaultContentLanguage = "en"
-
-theme = "hello-friend-ng"
-
-pygmentsCodefences = true
-pygmentsUseClasses = true
-rssLimit  = 10  # Maximum number of items in the RSS feed.
+languageCode = "en-us"
+defaultContentLanguage = "en"
+title = "nspawn.org"
+theme = "hermit"
+# enableGitInfo = true
+pygmentsCodefences  = true
+pygmentsUseClasses  = true
+# hasCJKLanguage = true  # If Chinese/Japanese/Korean is your main content language, enable this to make wordCount works right.
+rssLimit = 10  # Maximum number of items in the RSS feed.
 copyright = "This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License." # This message is only used by the RSS template.
-
-# googleAnalytics = ""
-# disqusShortname = ""
-
-archetypeDir = "archetypes"
-contentDir   = "content"
-dataDir      = "data"
-layoutDir    = "layouts"
-publishDir   = "public"
-
-buildDrafts  = false
-buildFuture  = false
-buildExpored = false
-canonifyURLs = true
-
-enableRobotsTXT = true
-enableGitInfo   = false
-enableEmoji     = true
-enableMissingTranslationPlaceholders = false
-disableRSS     = false
-disableSitemap = false
-disable404     = false
-disableHugoGeneratorInject = false
-
-[permalinks]
-  posts = "/posts/:year/:month/:title/"
+enableEmoji = true  # Shorthand emojis in content files - https://gohugo.io/functions/emojify/
+# googleAnalytics = "UA-123-45"
+# disqusShortname = "yourdiscussshortname"
 
 [author]
-  name = "the nspawn team"
+  name = "the nspawn.org team"
 
 [blackfriday]
-  hrefTargetBlank = true
+  # hrefTargetBlank = true
+  # noreferrerLinks = true
+  # nofollowLinks = true
 
 [taxonomies]
-  tag      = "tags"
-  category = ""
+  tag = "tags"
+  # Categories are disabled by default.
 
 [params]
   dateform        = "Jan 2, 2006"
@@ -53,62 +32,64 @@ disableHugoGeneratorInject = false
   dateformNumTime = "2006-01-02 15:04 -0700"
 
   # Metadata mostly used in document's head
-  description = "A new generation of containers"
-  keywords = ""
-  images = [""]
+  # description = ""
+  # images = [""]
+  themeColor = "#D8D8D8"
 
-  homeSubtitle = "A new generation of containers"
+  homeSubtitle = "A hub for systemd-nspawn containers and images"
+  footerCopyright = ' &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>'
+  # bgImg = ""  # Homepage background-image URL
 
   # Prefix of link to the git commit detail page. GitInfo must be enabled.
-  # gitUrl = ""
+  # gitUrl = "https://github.com/username/repository/commit/"
 
-  # Integrate Javascript files or stylesheets by adding the url to the external assets or by
-  # linking local files with their path relative to the static folder, e.g. "css/styles.css"
-  customCSS = []
-  customJS  = []
+  # Toggling this option needs to rebuild SCSS, requires Hugo extended version
+  justifyContent = false  # Set "text-align: justify" to `.content`.
 
-  # Toggle this option need to rebuild SCSS, requires extended version of Hugo
-  justifyContent = false  # Set "text-align: justify" to .content.
+  relatedPosts = false  # Add a related content section to all single posts page
 
-  # Directory name of your blog content (default is `content/posts`)
-  contentTypeName = "posts"
-  # Default theme "light" or "dark"
-  defaultTheme = "dark"
-  themeColor = "#252627"
+  # Add custom css
+  # customCSS = ["css/foo.css", "css/bar.css"]
 
-  [params.logo]
-    logoText     = "nspawn init"
-    logoHomeLink = "/"
-
-  # Social icons
+  # Social Icons
+  # Check https://github.com/Track3/hermit#social-icons for more info.
   [[params.social]]
     name = "twitter"
-    url  = "https://twitter.com/nspawnorg"
+    url = "https://twitter.com/nspawnorg"
 
   [[params.social]]
     name = "email"
-    url  = "mailto:nspawn@nspawn.org"
+    url = "mailto:root@nspawn.org"
 
   [[params.social]]
     name = "github"
-    url  = "https://github.com/nspawn"
-
-[languages]
-  [languages.en]
-    subtitle  = ""
-    weight    = 1
-    copyright = '<a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>'
+    url = "https://github.com/nspawn"
 
 [menu]
+
   [[menu.main]]
-    identifier = "images"
-    name       = "Images"
-    url        = "images/"
+    name = "Images"
+    url = "images/"
+
   [[menu.main]]
-    identifier = "faq"
-    name       = "FAQ"
-    url        = "faq/"
+    name = "FAQ"
+    url = "faq/"
+
   [[menu.main]]
-    identifier = "contact"
-    name       = "Contact"
-    url        = "contact/"
+    name = "Contact"
+    url = "contact/"
+
+# Disable all services for GDPR compliance
+[privacy]
+[privacy.disqus]
+disable = true
+[privacy.googleAnalytics]
+disable = true
+[privacy.instagram]
+disable = true
+[privacy.twitter]
+disable = true
+[privacy.vimeo]
+disable = true
+[privacy.youtube]
+disable = true

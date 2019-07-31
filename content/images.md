@@ -11,7 +11,7 @@ All our images have been signed with our master key:
 
 | Linux Distribution | Type | Download Link |
 | ------------------ | ---- | ------------- |
-| Arch Linux         | tar  | [archlinux-tar](/storage/archlinux/archlinux/raw/image.tar.xz)              |
+| Arch Linux         | tar  | [archlinux-tar](/storage/archlinux/archlinux/tar/image.tar.xz)              |
 | CentOS 7           | tar  | [centos7-tar](/storage/centos/7/tar/image.tar.xz)              |
 | Debian jessie      | raw  | [jessie-raw](/storage/debian/jessie/raw/image.raw.xz) | 
 | Debian jessie      | tar  | [jessie-tar](/storage/debian/jessie/tar/image.tar.xz) | 

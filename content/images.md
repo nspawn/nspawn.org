@@ -8,6 +8,7 @@ All our images have been signed with our master key:
 
 [575D E887 94A4 5D84 456D  8897 A232 A512 E7D0 BA83](https://nspawn.org/storage/masterkey.pgp)
 
+All images have the login: **root/root**
 
 | Linux Distribution | Type | Download Link |
 | ------------------ | ---- | ------------- |

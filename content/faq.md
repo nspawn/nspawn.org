@@ -13,7 +13,6 @@ The website nspawn.org is a hub for various images. Basically we take full advan
 * Fedora
 * Arch Linux
 * Ubuntu
-* CentOS.
 
 ## Is this service secure?
 

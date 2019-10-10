@@ -17,6 +17,8 @@ All images have the login: **root/root**
 | Debian jessie      | tar  | [jessie-tar](/storage/debian/jessie/tar/image.tar.xz) | 
 | Debian stretch     | raw  | [stretch-raw](/storage/debian/stretch/raw/image.raw.xz) | 
 | Debian stretch     | tar  | [stretch-tar](/storage/debian/stretch/tar/image.tar.xz) | 
+| Debian buster     | tar  | [buster-tar](/storage/debian/buster/tar/image.tar.xz) | 
+| Debian buster     | raw  | [buster-raw](/storage/debian/buster/raw/image.raw.xz) | 
 | Fedora 28          | raw  | [fedora28-raw](/storage/fedora/28/raw/image.raw.xz)              |
 | Fedora 28          | tar  | [fedora28-tar](/storage/fedora/28/tar/image.tar.xz)              |
 | Fedora 29          | raw  | [fedora29-raw](/storage/fedora/29/raw/image.raw.xz)              |

@@ -13,6 +13,7 @@ The website nspawn.org is a hub for various images. Basically we take full advan
 * Fedora
 * Arch Linux
 * Ubuntu
+* CentOS
 
 ## Is this service secure?
 
@@ -51,7 +52,7 @@ sudo gpg --no-default-keyring \
 Don't forget to trust our master key, after importing it! If everything is set up, you can go and download your first image.
 You can find a full list of all images here: [https://nspawn.org/storage/list.txt](https://nspawn.org/storage/list.txt)
 
-Use **machinectl pull-tar** or **machinectl pull-raw** to download the right image (depending on the image type):
+Use **machinectl pull-tar** or **machinectl pull-raw** to download the right image (depending on the image type). Right now we only support tar images, due to storage constraints.
 
 ```
 sudo machinectl pull-<tar|raw> \

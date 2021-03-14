@@ -9,11 +9,12 @@ toc: true
 
 The website nspawn.org is a hub for various images. Basically we take full advantage of [mkosi](https://github.com/systemd/mkosi) to generate images of several Linux distributions like:
 
+* Arch Linux
+* BlackArch
+* CentOS
 * Debian
 * Fedora
-* Arch Linux
 * Ubuntu
-* CentOS
 
 ## Is this service secure?
 
@@ -26,7 +27,7 @@ Yes.
 ## How does nspawn.org work?
 
 You have two options. The easy way via our wrapper nspawn or the manually way via the machinectl command.
-If you want to use the wrapper nspawn you can find it here: [https://github.com/nspawn/nspawn](https://github.com/nspawn/nspawn)
+If you want to use the wrapper nspawn you can find it here: [https://github.com/nspawn/nspawn](https://github.com/nspawn/nspawn/blob/master/nspawn)
 
 If you want to do it manually, here is a short tutorial:
 First you need to set up your **/etc/systemd/import-pubring.gpg** keyring file. You can do this via the following command:
@@ -39,32 +40,32 @@ sudo gpg --no-default-keyring \
 
 Second you need to import our master key. The master key has the following key id:
 
-[575D E887 94A4 5D84 456D  8897 A232 A512 E7D0 BA83](https://nspawn.org/storage/masterkey.pgp)
+[E605 F310 C460 32EB D9ED DDA0 9F9B 61E3 E4EF 5957](https://hub.nspawn.org/storage/masterkey.pgp)
 
 You can either download it manually and import it into your keyring or you search it directly via GPG:
 
 ```
 sudo gpg --no-default-keyring \
          --keyring=/etc/systemd/import-pubring.gpg \
-	 --search 575DE88794A45D84456D8897A232A512E7D0BA83
+	 --search E605F310C46032EBD9EDDDA09F9B61E3E4EF5957
 ```
 
 Don't forget to trust our master key, after importing it! If everything is set up, you can go and download your first image.
-You can find a full list of all images here: [https://nspawn.org/storage/list.txt](https://nspawn.org/storage/list.txt)
+You can find a full list of all images here: [https://hub.nspawn.org/storage/list.txt](https://hub.nspawn.org/storage/list.txt)
 
 Use **machinectl pull-tar** or **machinectl pull-raw** to download the right image (depending on the image type). Right now we only support tar images, due to storage constraints.
 
 ```
 sudo machinectl pull-<tar|raw> \
-     https://nspawn.org/storage/<distribution>/<release>/<type>/image.<type>.xz
+     https://hub.nspawn.org/storage/<distribution>/<release>/<type>/image.<type>.xz
 ```
 
 For example:
 
 ```
-sudo machinectl pull-tar https://nspawn.org/storage/fedora/29/tar/image.tar.xz
+sudo machinectl pull-tar https://hub.nspawn.org/storage/debian/buster/tar/image.tar.xz
 ```
 
 Now you can operate on the imported image as usually via **machinectl start <image name>**, **machinectl login <image-name>**, **machinectl shell <image-name>**, etc.
 
-We recommend the use of our **nspawn** wrapper script.
+We recommend the use of our [**nspawn**](https://github.com/nspawn/nspawn/blob/master/nspawn) wrapper script.

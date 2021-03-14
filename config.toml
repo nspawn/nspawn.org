@@ -1,7 +1,7 @@
-baseURL = "https://nspawn.org"
+baseURL = "https://hub.nspawn.org"
 languageCode = "en-us"
 defaultContentLanguage = "en"
-title = "nspawn.org"
+title = "Nspawn.org Hub"
 theme = "hermit"
 # enableGitInfo = true
 pygmentsCodefences  = true
@@ -15,7 +15,7 @@ enableEmoji = true  # Shorthand emojis in content files - https://gohugo.io/func
 # disqusShortname = "yourdiscussshortname"
 
 [author]
-  name = "the nspawn.org team"
+  name = "The nspawn.org Team"
 
 [blackfriday]
   # hrefTargetBlank = true
@@ -37,7 +37,7 @@ enableEmoji = true  # Shorthand emojis in content files - https://gohugo.io/func
   # images = [""]
   themeColor = "#D8D8D8"
 
-  homeSubtitle = "A hub for systemd-nspawn containers and images"
+  homeSubtitle = "A hub for systemd-nspawn containers and images."
   footerCopyright = ' &#183; <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>'
   # bgImg = ""  # Homepage background-image URL
 
@@ -60,7 +60,7 @@ enableEmoji = true  # Shorthand emojis in content files - https://gohugo.io/func
 
   [[params.social]]
     name = "email"
-    url = "mailto:root@nspawn.org"
+    url = "mailto:team@nspawn.org"
 
   [[params.social]]
     name = "github"

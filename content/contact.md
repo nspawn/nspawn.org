@@ -18,7 +18,7 @@ chris@shibumi.dev
 
 **PGP Key**
 
-[0xDFE2060D](/static/storage/shibumi.txt)
+[0xDFE2060D](https://hub.nspawn.org/storage/shibumi.txt)
 
 The fingerprint for the key is: `6DAF 7B80 8F9D F251 3962 0000 D214 61E3 DFE2 060D`
 
@@ -34,7 +34,7 @@ edu4rdshl@protonmail.com
 
 **PGP Key**
 
-[0x42E0616D](/static/storage/edu4rdshl.txt)
+[0x42E0616D](https://hub.nspawn.org/storage/edu4rdshl.txt)
 
 The fingerprint for the key is: `8D19 E962 4180 8487 38B9 4833 3A57 4A40 09F5 53E5`
 

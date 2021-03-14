@@ -4,23 +4,40 @@ date: 2019-03-08T22:37:01+01:00
 draft: false
 ---
 
-**Contact**
+## Nspawn Team
 
-Christian Rebischke  
-Marie-Hedwigstraße 13  
-Apartment 321  
-38678 Clausthal-Zellerfeld  
+**Mail**
+
+team@nspawn.org
+
+## Core Developers
+
+### Christian Rebischke  
 Germany
 
 **Mail**
 
 chris@shibumi.dev
 
-**Mail Encryption**
+**PGP Key**
 
-If you want to write me an encrypted email via PGP, feel free to download my PGP key: [0xDFE2060D](/static/storage/pubkey.txt)
+[0xDFE2060D](https://hub.nspawn.org/storage/shibumi.txt)
 
 The fingerprint for the key is: `6DAF 7B80 8F9D F251 3962 0000 D214 61E3 DFE2 060D`
+
+
+### Eduard Tolosa 
+Colombia  
+
+**Mail**
+
+edu4rdshl@protonmail.com
+
+**PGP Key**
+
+[0x42E0616D](https://hub.nspawn.org/storage/edu4rdshl.txt)
+
+The fingerprint for the key is: `8D19 E962 4180 8487 38B9 4833 3A57 4A40 09F5 53E5`
 
 **Privacy Policy**
 

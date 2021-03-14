@@ -1,7 +1,7 @@
 baseURL = "https://hub.nspawn.org"
 languageCode = "en-us"
 defaultContentLanguage = "en"
-title = "Nspawn.org Hub"
+title = "Hub for systemd-nspawn containers and images."
 theme = "hermit"
 # enableGitInfo = true
 pygmentsCodefences  = true

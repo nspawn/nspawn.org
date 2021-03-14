@@ -1,0 +1,57 @@
+==================================================================
+https://keybase.io/sh1bumi
+--------------------------------------------------------------------
+
+I hereby claim:
+
+  * I am an admin of https://nspawn.org
+  * I am sh1bumi (https://keybase.io/sh1bumi) on keybase.
+  * I have a public key ASCzULumqEdN4LmQ1uZ3e_MtnqwTfPTBy7KMmcTap2bEGgo
+
+To do so, I am signing this object:
+
+{
+  "body": {
+    "key": {
+      "eldest_kid": "0120b350bba6a8474de0b990d6e6777bf32d9eac137cf4c1cbb28c99c4daa766c41a0a",
+      "host": "keybase.io",
+      "kid": "0120b350bba6a8474de0b990d6e6777bf32d9eac137cf4c1cbb28c99c4daa766c41a0a",
+      "uid": "87e6dc173ce3914f90123069359be919",
+      "username": "sh1bumi"
+    },
+    "merkle_root": {
+      "ctime": 1555102773,
+      "hash": "83204af4abc18966c8db28839eec1659cf53daf8b60f983fc01440190b771a9ba1b38b9b355bd67c195378ac15cb75de2f01f19661feb2de92631619faa14a93",
+      "hash_meta": "b867084b4be75f6ddd8769e1ffe45a557c5f9f033c4268b6dbf63b37ce481926",
+      "seqno": 5156097
+    },
+    "service": {
+      "entropy": "2aoHGYHjlYkzR+TTqhPo/JO2",
+      "hostname": "nspawn.org",
+      "protocol": "https:"
+    },
+    "type": "web_service_binding",
+    "version": 2
+  },
+  "client": {
+    "name": "keybase.io go client",
+    "version": "3.2.1"
+  },
+  "ctime": 1555102801,
+  "expire_in": 504576000,
+  "prev": "bd978bdf3652d4dc595da11d7cd2116e880f70bc3230d52c5063b39fc38d461d",
+  "seqno": 14,
+  "tag": "signature"
+}
+
+which yields the signature:
+
+hKRib2R5hqhkZXRhY2hlZMOpaGFzaF90eXBlCqNrZXnEIwEgs1C7pqhHTeC5kNbmd3vzLZ6sE3z0wcuyjJnE2qdmxBoKp3BheWxvYWTESpcCDsQgvZeL3zZS1NxZXaEdfNIRbogPcLwyMNUsUGOzn8ONRh3EIKNuNToq+cdax5a99731JF/drRBNE4cvkRG/IAy9kjwpAgHCo3NpZ8RA7Yp8aPNx+TBSB2w7Cx6C9sEnoSJYh1scxJv1LzAsfzTUQDCm4mgGNkP2fSx1yagaOWCGklP8R3otWFRdUi3eAKhzaWdfdHlwZSCkaGFzaIKkdHlwZQildmFsdWXEIB2Jafjm3bWcUf6zq/su63CJhFdDPX2e+91leD1+5tnso3RhZ80CAqd2ZXJzaW9uAQ==
+
+And finally, I am proving ownership of this host by posting or
+appending to this document.
+
+View my publicly-auditable identity here: https://keybase.io/sh1bumi
+
+==================================================================
+

@@ -4,12 +4,15 @@ date: 2019-03-08T22:37:01+01:00
 draft: false
 ---
 
+## Nspawn Team
+
+**Mail**
+
+team@nspawn.org
+
 ## Core Developers
 
 ### Christian Rebischke  
-Marie-Hedwigstraße 13  
-Apartment 321  
-38678 Clausthal-Zellerfeld  
 Germany
 
 **Mail**
@@ -24,8 +27,6 @@ The fingerprint for the key is: `6DAF 7B80 8F9D F251 3962 0000 D214 61E3 DFE2 06
 
 
 ### Eduard Tolosa 
-Bogotá D.C  
-110111 Los Andes  
 Colombia  
 
 **Mail**

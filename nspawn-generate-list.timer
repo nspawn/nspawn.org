@@ -1,0 +1,11 @@
+# /etc/systemd/system/nspawn-generate-list.timer
+[Unit]
+ Description=Generate list of available images for hub.nspawn.org
+
+[Timer]
+ OnBootSec=1min
+ OnUnitActiveSec=1m
+
+[Install]
+ WantedBy=timers.target
+

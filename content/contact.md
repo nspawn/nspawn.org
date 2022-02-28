@@ -8,7 +8,7 @@ draft: false
 
 **Mail**
 
-nspawn-team@protonmail.com
+team@nspawn.org
 
 ## Core Developers
 

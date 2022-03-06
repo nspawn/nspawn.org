@@ -29,6 +29,8 @@ Yes.
 You have two options. The easy way via our wrapper nspawn or the manually way via the machinectl command.
 If you want to use the wrapper nspawn you can find it here: [https://github.com/nspawn/nspawn](https://github.com/nspawn/nspawn/blob/master/nspawn)
 
+**Note**: We recommend the use of our [**nspawn**](https://github.com/nspawn/nspawn/blob/master/nspawn) wrapper script, it will setup everything including the signing key, and provides a easy command line interface to install containers and images.
+
 If you want to do it manually, here is a short tutorial:
 First you need to set up your **/etc/systemd/import-pubring.gpg** keyring file. You can do this via the following command:
 
@@ -40,14 +42,15 @@ sudo gpg --no-default-keyring \
 
 Second you need to import our master key. The master key has the following key id:
 
-[E605 F310 C460 32EB D9ED DDA0 9F9B 61E3 E4EF 5957](https://hub.nspawn.org/storage/masterkey.pgp)
+[9E31 BD49 63FC 2D19 815F A718 0E2A 1E4B 25A4 25F6](https://hub.nspawn.org/storage/masterkey.pgp)
 
 You can either download it manually and import it into your keyring or you search it directly via GPG:
 
 ```
-sudo gpg --no-default-keyring \
+/usr/bin/sudo gpg --no-default-keyring \
+         --keyserver=keys.openpgp.org \
          --keyring=/etc/systemd/import-pubring.gpg \
-	 --search E605F310C46032EBD9EDDDA09F9B61E3E4EF5957
+	--search 9E31BD4963FC2D19815FA7180E2A1E4B25A425F6
 ```
 
 Don't forget to trust our master key, after importing it! If everything is set up, you can go and download your first image.
@@ -68,4 +71,3 @@ sudo machinectl pull-tar https://hub.nspawn.org/storage/debian/buster/tar/image.
 
 Now you can operate on the imported image as usually via **machinectl start <image name>**, **machinectl login <image-name>**, **machinectl shell <image-name>**, etc.
 
-We recommend the use of our [**nspawn**](https://github.com/nspawn/nspawn/blob/master/nspawn) wrapper script.

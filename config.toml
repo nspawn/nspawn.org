@@ -1,4 +1,4 @@
-baseURL = "https://hub.nspawn.org"
+baseURL = "https://nspawn.org"
 languageCode = "en-us"
 defaultContentLanguage = "en"
 title = "Hub for systemd-nspawn containers and images"
@@ -15,7 +15,7 @@ enableEmoji = true  # Shorthand emojis in content files - https://gohugo.io/func
 # disqusShortname = "yourdiscussshortname"
 
 [author]
-  name = "The nspawn.org Team"
+  name = "The Nspawn Org Team"
 
 [blackfriday]
   # hrefTargetBlank = true

@@ -69,7 +69,7 @@ enableEmoji = true  # Shorthand emojis in content files - https://gohugo.io/func
 [menu]
 
   [[menu.main]]
-    name = "Images"
+    name = "Container Images"
     url = "images/"
 
   [[menu.main]]

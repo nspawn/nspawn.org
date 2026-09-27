@@ -386,6 +386,10 @@ its unit:
 - `--sysctl KEY=VALUE`: `net.*` keys, set in the network namespace nspawn
   makes for an app machine on a bridge network. Nothing else is accepted, and
   a booted machine sets its own.
+- `--interface IFACE`: a network interface of the host, moved into the
+  machine while it runs and back on the host when it stops, a wifi adapter
+  with its whole phy included; no docker counterpart. See [Physical
+  interfaces](/docs/networking/#physical-interfaces).
 
 A list takes `none` to forget it (`--cap-drop none`, `--tmpfs none`), a value
 an empty string (`--hostname ""`) or `0` (`--oom-score-adj 0`), and

@@ -17,7 +17,9 @@ description: >-
   `lowerdir+=`). Without it images are extracted as flat directories.
 - **iproute2** and **nftables** (`ip` and `nft`) for the bridge network. Nothing
   else: the bridge does not need systemd-networkd or NetworkManager on the host.
-  Only `--network veth` needs systemd-networkd.
+  Only `--network veth` needs systemd-networkd, and only `--interface` with a
+  wifi adapter needs `iw` (for an app on the bridge) or systemd 256 (for a
+  booted machine).
 - **Root, or an administrator with polkit.** Every command is a call to the
   [service](/docs/overview/#the-service) on the system bus, which asks polkit
   who you are: root is never asked, an administrator is asked for a password,

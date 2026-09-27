@@ -34,9 +34,7 @@ Images from an OCI hub, shared layers, and systemd all the way down.
 nspawn pulls OCI images from [the hub](docs/images/#the-hub) at
 `hub.nspawn.org`, from Docker Hub or from any other registry, stores them as
 shared layers and starts, inspects and stops the machines through the D-Bus
-APIs of systemd-machined and systemd itself. No `machinectl`, no `importctl`:
-the machines are ordinary `systemd-nspawn@.service` units that the rest of the
-system already knows.
+APIs of systemd-machined and systemd itself.
 
 {{% /blocks/lead %}}
 

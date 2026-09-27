@@ -152,7 +152,10 @@ network namespace is built on the host before the program starts, so the
 network is there from the first instruction, as in docker. For the same reason
 an app on the bridge runs without a user namespace (`PrivateUsers=no`), which
 is also docker's default; capabilities, seccomp and the other namespaces still
-apply.
+apply, and such an app keeps docker's default capabilities and `SYS_BOOT`,
+with the kexec system calls filtered out, rather than systemd-nspawn's, whose `CAP_SYS_ADMIN` would be root on the host
+outside a user namespace. `--cap-add` puts one back, `--privileged` all of
+them.
 
 - `exec` and `shell` enter the namespaces of the machine's leader process, on a
   pseudo terminal, with the image's environment. `shell` runs `/bin/sh`, and
@@ -359,9 +362,15 @@ its unit:
   is refused) and the working directory the program runs with, instead of the
   image's. App images only.
 - `--cap-add`, `--cap-drop` and `--privileged`: capabilities on top of, or
-  out of, systemd-nspawn's default set (`NET_ADMIN` or `CAP_NET_ADMIN`;
-  `ALL`). `--cap-drop ALL --cap-add NET_BIND_SERVICE` keeps that one, as with
-  docker, and `--privileged` keeps every one.
+  out of, the default set (`NET_ADMIN` or `CAP_NET_ADMIN`; `ALL`): docker's
+  (CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL, MKNOD, NET_BIND_SERVICE,
+  NET_RAW, SETFCAP, SETGID, SETPCAP, SETUID, SYS_CHROOT, AUDIT_WRITE) plus
+  SYS_BOOT, so that a reboot from inside ends the machine, for an app on a
+  bridge network, which runs without a user namespace, and systemd-nspawn's
+  for a machine in one. An interface given with
+  `--interface` keeps `NET_ADMIN` on its own. `--cap-drop ALL --cap-add
+  NET_BIND_SERVICE` keeps that one, as with docker, and `--privileged` keeps
+  every one.
 - `--read-only`: the root read-only. `--tmpfs PATH[:OPTIONS]`: an empty tmpfs
   at a path (`size=64m`, `mode=1777`), which is how a read-only machine still
   writes `/tmp` or `/var/cache`. `/run` is a tmpfs of every machine already,
@@ -370,10 +379,12 @@ its unit:
   `/dev/shm`.
 - `--device HOST[:CONTAINER[:PERMISSIONS]]`: a device node of the host, bound
   into the machine and allowed to its cgroup (`r`, `w`, `m`; `rwm` by
-  default). In a machine with private users the node keeps the host's
+  default), or a directory such as `/dev/dri`, whose nodes are allowed one by
+  one. In a machine with private users the node keeps the host's
   ownership.
 - `--dns` and `--dns-search`: the machine's `resolv.conf`, instead of the
-  host's resolvers. `--add-host HOST:IP`: lines for its `/etc/hosts`,
+  host's resolvers. `--add-host HOST:IP` (or `HOST=IP`, for an IPv6 address):
+  lines for its `/etc/hosts`,
   `host-gateway` standing for the host's address on the machine's network.
 - `--ulimit NAME=SOFT[:HARD]`: resource limits of the program (`nofile`,
   `nproc`, `core`, ...; `unlimited` is a value). `--oom-score-adj`: the
@@ -393,7 +404,10 @@ its unit:
 
 A list takes `none` to forget it (`--cap-drop none`, `--tmpfs none`), a value
 an empty string (`--hostname ""`) or `0` (`--oom-score-adj 0`), and
-`--privileged=false` and `--read-only=false` take those back. A path the image
+`--privileged=false` and `--read-only=false` take those back. A path inside the
+machine, the target of a volume or a secret, a `--tmpfs` or a `--device` path,
+must be plain: a `.` or `..` component is refused, since it would land elsewhere
+once mounted. A path the image
 declares as a volume with nothing mounted over it gets a note at start: nspawn
 has no anonymous volumes, so what is written there goes with the machine.
 
@@ -462,13 +476,17 @@ sudo nspawn exec MACHINE [-u USER] [-e VAR[=VALUE]]... [-w DIR] [-T] [-t] [-i] [
 sudo nspawn shell MACHINE [-u USER]
 ```
 
-`exec` runs one command inside a running machine of either kind, attached to
-your terminal, and exits with the command's status, so it works in scripts and
+`exec` runs one command inside a running machine of either kind, on a terminal
+when standard input and output are both one, and exits with the command's status, so it works in scripts and
 pipelines (what goes through stdin and stdout is byte exact). The program is
 looked up on the machine's `PATH`, the image's environment and the `-e`
 variables of the machine apply, and the working directory is the machine's.
-Neither D-Bus nor anything else is needed inside. The flags are `docker exec`'s:
-`-e` adds variables for this command, `-w` a working directory, `-T` refuses a
+Neither D-Bus nor anything else is needed inside. The command runs with the
+machine's capabilities and resource limits, like the machine's own processes;
+right after a start it waits, a few seconds at most, until systemd-nspawn has
+finished confining the machine. The flags are `docker exec`'s: `-u USER[:GROUP]`
+takes names or numbers of the image's passwd and group files (with a group, that
+one is the only group), `-e` adds variables for this command, `-w` a working directory, `-T` refuses a
 terminal even from one (pipes, as in a script) and `-t` asks for one even
 without, `-i` is accepted for docker's sake, and `-d` leaves the command
 running in the background and returns at once.
@@ -496,7 +514,8 @@ not, with docker cp's rules:
   times are kept.
 - Paths inside the machine are resolved inside it, so a link there, absolute
   or not, never leads to the host. Links are copied as links; devices, sockets
-  and fifos are left out.
+  and fifos are left out, and so are the kernel's file systems mounted inside
+  a running machine (`/proc`, `/sys` and the like).
 
 A stopped overlay or flat machine can be copied into and out of; a stopped
 `mstack` machine cannot, since its tree only exists while it runs. Where

@@ -297,16 +297,16 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--hostname NAME` | Hostname inside the machine. Default: its name. A booted machine gets it as its `/etc/hostname`. |
 | `-u`, `--user USER[:GROUP]` | User the program runs as, a name or a uid (listed in the image's `passwd` or not), instead of the image's, with a group after a colon as docker takes it: a name of the image's `group` file or a number, which becomes the primary and only group of the program; a name the image lacks is refused. nspawn resolves both from the image's `passwd` and `group` files through a stand-in for getent, as docker does. App images only. |
 | `-w`, `--workdir DIR` | Working directory of the program, instead of the image's. App images only. |
-| `--cap-add CAP` | Capability to keep on top of systemd-nspawn's default set: `NET_ADMIN`, `CAP_NET_ADMIN`, `ALL`. Repeatable; `none` forgets them. |
+| `--cap-add CAP` | Capability to keep on top of the default set (docker's and SYS_BOOT for an app on a bridge network, systemd-nspawn's for a machine in a user namespace): `NET_ADMIN`, `CAP_NET_ADMIN`, `ALL`. Repeatable; `none` forgets them. |
 | `--cap-drop CAP` | Capability to drop from the default set. `--cap-drop ALL --cap-add X` keeps `X`, as with docker. Repeatable; `none` forgets them. |
 | `--privileged` | Every capability, like `docker --privileged`; `--privileged=false` takes it back. |
 | `--read-only` | Mount the machine's root read-only; `--read-only=false` takes it back. |
 | `--tmpfs PATH[:OPTIONS]` | An empty tmpfs at a path inside (`/tmp:size=64m,mode=1777`). One that lands on `/run`, a tmpfs of every machine already, is left out with a note. Repeatable; `none` forgets them. |
 | `--shm-size SIZE` | Size of `/dev/shm`: `64m`, `1g`; `0` for the default. |
-| `--device HOST[:CONTAINER[:PERMISSIONS]]` | A device node of the host for the machine, like `docker --device` (`/dev/dri`, `/dev/ttyUSB0:/dev/ttyUSB0:rw`). Repeatable; `none` forgets them. |
+| `--device HOST[:CONTAINER[:PERMISSIONS]]` | A device node of the host for the machine, like `docker --device` (`/dev/ttyUSB0:/dev/ttyUSB0:rw`), or a directory whose nodes are allowed one by one (`/dev/dri`). Repeatable; `none` forgets them. |
 | `--dns ADDRESS` | DNS server for the machine, instead of the host's. Repeatable; `none` forgets them. |
 | `--dns-search DOMAIN` | DNS search domain. Repeatable; `none` forgets them. |
-| `--add-host HOST:IP` | A line for the machine's `/etc/hosts`; `host-gateway` is the host's address on the machine's network. Repeatable; `none` forgets them. |
+| `--add-host HOST:IP` | A line for the machine's `/etc/hosts`, `HOST:IP` or `HOST=IP` (the second for an IPv6 address); `host-gateway` is the host's address on the machine's network. Repeatable; `none` forgets them. |
 | `--ulimit NAME=SOFT[:HARD]` | A resource limit of the program, like `docker --ulimit` (`nofile=1024:4096`, `core=unlimited`). Repeatable; `none` forgets them. |
 | `--oom-score-adj N` | OOM score adjustment of the machine, -1000 to 1000. |
 | `--stop-signal SIGNAL` | Signal `stop` sends the program, instead of the image's (`SIGTERM`). |
@@ -318,6 +318,9 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--image-command` | Forget the remembered entrypoint and arguments and run the image's own again. |
 | `--no-wait` | Do not wait for a booted machine's init to be up before returning. Its registration is still awaited, so that ports and firewall rules can be applied. |
 | `-- ARGUMENTS...` | App images: replace the image's cmd; they follow its entrypoint, as with docker. |
+
+A path inside the machine, the target of `-v` or `--secret`, a `--tmpfs` or a
+`--device` path, must be plain: a `.` or `..` component is refused.
 
 ## run
 
@@ -346,7 +349,7 @@ image shows its console until it powers off, and Ctrl-C powers it off.
 | `REFERENCE` | `[registry/]repository[:tag\|@digest]`, for example `nginx:1.27`. |
 | `COMMAND [ARGUMENT...]` | App images: replace the image's cmd and follow its entrypoint, as with docker; everything after the reference that is not an option of `run`, or everything after `--`. |
 | `-d`, `--detach` | Start the machine in the background and return, like `docker run -d`; `nspawn logs -f NAME` follows its output. |
-| `--rm` | Remove the machine once it ends, with or without `-d`; named volumes stay. An image the run had to pull is kept under the image's local name, as docker keeps images, and without `--name` the machine gets a name of its own (`alpine-3-1f0c9a2e`). Refused with a restart policy. A run that fails to start leaves nothing behind. |
+| `--rm` | Remove the machine once it ends, with or without `-d`; named volumes stay. An image the run had to pull is kept under the image's local name when that name is free, as docker keeps images, and without `--name` the machine gets a name of its own (`alpine-3-1f0c9a2e`). Refused with a restart policy. A run that fails to start leaves nothing behind. |
 | `-i`, `--interactive` | App images: give the program this standard input, like `docker run -i`. |
 | `-t`, `--tty` | App images: give the program a terminal, like `docker run -t`; Ctrl-C and resizes reach it through the terminal. Closing the terminal stops the machine. With `-i` on a booted image: wait for it to boot, open a root shell, and power it off when the shell ends, with the shell's exit code. Not with `-d`. |
 | `-n`, `--name NAME` | Name of the machine. Default: derived from the reference, for example `nginx-1.27`. A name that is taken is refused, with a pointer to `start`. |
@@ -445,17 +448,19 @@ nspawn exec MACHINE [-u USER] [-e VAR[=VALUE]]... [-w DIR] [-T] [-t] [-i] [-d] C
 ```
 
 Runs a command inside a running machine of either kind, attached to the
-terminal, in the machine's namespaces, with the image's environment and the
-machine's `-e` variables. The program is found on the machine's `PATH` and
-runs with the machine's capabilities, like its own processes. Exits with the
-command's status.
+terminal when standard input and output are one, in the machine's namespaces,
+with the image's environment and the machine's `-e` variables. The program is found on the machine's `PATH` and
+runs with the machine's capabilities and resource limits, like its own
+processes; right after a start it waits, a few seconds at most, until
+systemd-nspawn has finished confining the machine. Exits with the command's
+status.
 
 | Option | Meaning |
 | --- | --- |
-| `-u`, `--user USER` | User inside the machine. Default: `root`. |
+| `-u`, `--user USER[:GROUP]` | User inside the machine, a name or a number of its passwd file, with a group of its group file after a colon (then the only group; otherwise the user's supplementary groups come along) and the home of the passwd entry. Default: `root`. |
 | `-e`, `--env VAR[=VALUE]` | A variable for the command, `VAR=value` or `VAR` copied from the calling shell, like `docker exec -e`. Repeatable. |
 | `-w`, `--workdir DIR` | Working directory of the command, instead of the machine's. |
-| `-T`, `--no-tty` | No terminal, even from one: pipes, as in a script. |
+| `-T`, `--no-tty` | No terminal, even from one: pipes, as in a script. Without `-t` or `-T`, a terminal only when standard input and output are one, so redirected output is byte-exact. |
 | `-t`, `--tty` | A terminal for the command, even without one here. |
 | `-i`, `--interactive` | Accepted for docker's sake: the command's input is always this one. |
 | `-d`, `--detach` | Leave the command running in the background and return at once. |
@@ -501,7 +506,8 @@ machine; a stopped mstack machine has no tree on the host until it runs.
   modification times are kept.
 - Paths inside the machine are resolved inside it: a link there, absolute or
   not, never leads to the host. Links are copied as links; devices, sockets and
-  fifos are left out.
+  fifos are left out, and so are the kernel's file systems mounted inside a
+  running machine (`/proc`, `/sys` and the like).
 - A relative path after `MACHINE:` starts at the machine's root. A local path
   with a colon is written `./a:b`.
 

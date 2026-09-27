@@ -16,7 +16,9 @@ An image reference has the form `[registry/]repository[:tag|@digest]`:
   is the hub, `hub.nspawn.org`; the [configuration](/docs/configuration/) page
   shows how to change it. The first path component counts as a registry when it
   looks like a host, for example `docker.io/library/nginx` or
-  `registry.example:5000/team/app`.
+  `registry.example:5000/team/app`, or when it is the configured registry's own
+  name, so a registry of the local network without a dot or a port (`myhub`)
+  reads back as itself.
 - Without a tag or digest, the tag is `latest`.
 - Repository names may only contain lowercase letters, digits, `.`, `_`, `-`
   and `/`. Official Docker Hub images live under `library/`, so nginx is

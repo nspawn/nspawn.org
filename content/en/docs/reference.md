@@ -121,7 +121,7 @@ size, speed and time left; in a pipe or a log only the lines are written.
 nspawn create SOURCE NAME [--backend BACKEND] [--network NETWORK]... [--network-alias [NETWORK=]NAME]...
               [-p [IP:]HOST:CONTAINER[/udp]]... [--entrypoint PROGRAM] [-e VAR[=VALUE]]...
               [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]... [--restart POLICY] [-m SIZE] [--cpus N]
-              [--pids-limit N] [HEALTHCHECK OPTIONS] [OTHER OPTIONS] [--secret SECRET]...
+              [--pids-limit N] [HEALTHCHECK OPTIONS] [OTHER OPTIONS] [--interface IFACE]... [--secret SECRET]...
               [-f] [--no-verify] [-- ARGUMENTS...]
 ```
 
@@ -142,7 +142,7 @@ the image's own name, as `run` does. The layers are shared with the source.
 | `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume, like `docker -v`. |
 | `-l`, `--label KEY=VALUE` | Label the machine, on top of the image's own labels, like `docker --label`. Not inherited from the source. |
 | `--restart`, `-m`, `--cpus`, `--pids-limit` | Restart policy and limits, as for [start](#start). Not inherited from the source. |
-| the healthcheck options, the other options, `--secret` | As for [start](#start). Not inherited from the source. |
+| the healthcheck options, the other options, `--interface`, `--secret` | As for [start](#start). Not inherited from the source. |
 | `-f`, `--force` | Replace an existing machine with the same name. |
 | `--no-verify` | Skip the signature check of an image that has to be pulled (a local source is not checked); like docker's `--disable-content-trust`. |
 | `-- ARGUMENTS...` | App images: replace the image's cmd; they follow its entrypoint, as with docker. |
@@ -268,7 +268,8 @@ nspawn start NAME [--network NETWORK]... [--network-alias [NETWORK=]NAME]... [-p
              [--device HOST[:CONTAINER[:PERMISSIONS]]]... [--dns ADDRESS]... [--dns-search DOMAIN]...
              [--add-host HOST:IP]... [--ulimit NAME=SOFT[:HARD]]... [--oom-score-adj N]
              [--stop-signal SIGNAL] [--stop-timeout SECONDS] [--init] [--sysctl KEY=VALUE]...
-             [--secret NAME[:TARGET[:MODE[:UID:GID]]]]... [--image-command] [--no-wait] [-- ARGUMENTS...]
+             [--interface IFACE]... [--secret NAME[:TARGET[:MODE[:UID:GID]]]]... [--image-command] [--no-wait]
+             [-- ARGUMENTS...]
 ```
 
 Boots an image as a machine. Every option is remembered for the next start.
@@ -312,6 +313,7 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--stop-timeout SECONDS` | Seconds `stop` waits after the signal before SIGKILL, unless `-t` says otherwise. Default: 10. |
 | `--init` | Accepted for docker's sake: nspawn's stub init reaps orphans anyway. App images only. |
 | `--sysctl KEY=VALUE` | A `net.*` sysctl for an app machine's network namespace. Repeatable; `none` forgets them. |
+| `--interface IFACE` | A network interface of the host, moved into the machine while it runs and given back when it stops: an ethernet one, or a wifi adapter with its whole phy (`iw` on the host for an app on the bridge, systemd 256 for a booted machine); the name is kept inside. Not with `--network host` or `container:NAME`; one machine at a time. See [Physical interfaces](/docs/networking/#physical-interfaces). Repeatable; `none` forgets them. |
 | `--secret NAME[:TARGET[:MODE[:UID:GID]]]` | A secret made with [secret create](#secret-create) as a read-only file inside the machine, like docker's `--secret`: `NAME` alone is `/run/secrets/NAME` with mode 0444, root's. Repeatable; `none` forgets them. Not on `mstack` machines. |
 | `--image-command` | Forget the remembered entrypoint and arguments and run the image's own again. |
 | `--no-wait` | Do not wait for a booted machine's init to be up before returning. Its registration is still awaited, so that ports and firewall rules can be applied. |
@@ -353,7 +355,7 @@ image shows its console until it powers off, and Ctrl-C powers it off.
 | `--mode auto\|boot\|app` | As for `pull`; a mode other than `auto` always pulls. |
 | `-f`, `--force` | Make the machine anew when one of that name exists; it must be stopped. |
 | `--no-verify` | Skip the signature check of the image, as for `pull`. |
-| the options of `start` | `--network`, `--network-alias`, `-p`, `--entrypoint`, `-e`, `-v`, `-l`, `--restart`, `-m`, `--cpus`, `--pids-limit`, the healthcheck options, the other options, `--secret` and `--no-wait` (with `-d` only), as for [start](#start). Options may come before or after the reference, as long as they come before the command. |
+| the options of `start` | `--network`, `--network-alias`, `-p`, `--entrypoint`, `-e`, `-v`, `-l`, `--restart`, `-m`, `--cpus`, `--pids-limit`, the healthcheck options, the other options, `--interface`, `--secret` and `--no-wait` (with `-d` only), as for [start](#start). Options may come before or after the reference, as long as they come before the command. |
 
 ## stop
 

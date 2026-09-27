@@ -152,7 +152,9 @@ network namespace is built on the host before the program starts, so the
 network is there from the first instruction, as in docker. For the same reason
 an app on the bridge runs without a user namespace (`PrivateUsers=no`), which
 is also docker's default; capabilities, seccomp and the other namespaces still
-apply.
+apply, and such an app keeps docker's default capabilities rather than
+systemd-nspawn's, whose `CAP_SYS_ADMIN` would be root on the host outside a
+user namespace. `--cap-add` puts one back, `--privileged` all of them.
 
 - `exec` and `shell` enter the namespaces of the machine's leader process, on a
   pseudo terminal, with the image's environment. `shell` runs `/bin/sh`, and
@@ -359,9 +361,14 @@ its unit:
   is refused) and the working directory the program runs with, instead of the
   image's. App images only.
 - `--cap-add`, `--cap-drop` and `--privileged`: capabilities on top of, or
-  out of, systemd-nspawn's default set (`NET_ADMIN` or `CAP_NET_ADMIN`;
-  `ALL`). `--cap-drop ALL --cap-add NET_BIND_SERVICE` keeps that one, as with
-  docker, and `--privileged` keeps every one.
+  out of, the default set (`NET_ADMIN` or `CAP_NET_ADMIN`; `ALL`): docker's
+  (CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL, MKNOD, NET_BIND_SERVICE,
+  NET_RAW, SETFCAP, SETGID, SETPCAP, SETUID, SYS_CHROOT, AUDIT_WRITE) for an
+  app on a bridge network, which runs without a user namespace, and
+  systemd-nspawn's for a machine in one. An interface given with
+  `--interface` keeps `NET_ADMIN` on its own. `--cap-drop ALL --cap-add
+  NET_BIND_SERVICE` keeps that one, as with docker, and `--privileged` keeps
+  every one.
 - `--read-only`: the root read-only. `--tmpfs PATH[:OPTIONS]`: an empty tmpfs
   at a path (`size=64m`, `mode=1777`), which is how a read-only machine still
   writes `/tmp` or `/var/cache`. `/run` is a tmpfs of every machine already,

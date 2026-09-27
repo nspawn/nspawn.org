@@ -297,7 +297,7 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--hostname NAME` | Hostname inside the machine. Default: its name. A booted machine gets it as its `/etc/hostname`. |
 | `-u`, `--user USER[:GROUP]` | User the program runs as, a name or a uid (listed in the image's `passwd` or not), instead of the image's, with a group after a colon as docker takes it: a name of the image's `group` file or a number, which becomes the primary and only group of the program; a name the image lacks is refused. nspawn resolves both from the image's `passwd` and `group` files through a stand-in for getent, as docker does. App images only. |
 | `-w`, `--workdir DIR` | Working directory of the program, instead of the image's. App images only. |
-| `--cap-add CAP` | Capability to keep on top of systemd-nspawn's default set: `NET_ADMIN`, `CAP_NET_ADMIN`, `ALL`. Repeatable; `none` forgets them. |
+| `--cap-add CAP` | Capability to keep on top of the default set (docker's for an app on a bridge network, systemd-nspawn's for a machine in a user namespace): `NET_ADMIN`, `CAP_NET_ADMIN`, `ALL`. Repeatable; `none` forgets them. |
 | `--cap-drop CAP` | Capability to drop from the default set. `--cap-drop ALL --cap-add X` keeps `X`, as with docker. Repeatable; `none` forgets them. |
 | `--privileged` | Every capability, like `docker --privileged`; `--privileged=false` takes it back. |
 | `--read-only` | Mount the machine's root read-only; `--read-only=false` takes it back. |

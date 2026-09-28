@@ -120,8 +120,8 @@ size, speed and time left; in a pipe or a log only the lines are written.
 ```text
 nspawn create SOURCE NAME [--backend BACKEND] [--network NETWORK]... [--network-alias [NETWORK=]NAME]...
               [-p [IP:]HOST:CONTAINER[/udp]]... [--entrypoint PROGRAM] [-e VAR[=VALUE]]...
-              [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]... [--restart POLICY] [-m SIZE] [--cpus N]
-              [--pids-limit N] [HEALTHCHECK OPTIONS] [OTHER OPTIONS] [--interface IFACE]... [--secret SECRET]...
+              [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]... [--restart POLICY] [-m SIZE] [--memory-swap SIZE]
+              [--cpus N] [--pids-limit N] [HEALTHCHECK OPTIONS] [OTHER OPTIONS] [--interface IFACE]... [--secret SECRET]...
               [-f] [--no-verify] [-- ARGUMENTS...]
 ```
 
@@ -141,7 +141,7 @@ the image's own name, as `run` does. The layers are shared with the source.
 | `-e`, `--env VAR[=VALUE]` | Environment for the program, `VAR=value` or `VAR` copied from the calling shell, like `docker -e`. App images only. |
 | `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume, like `docker -v`. |
 | `-l`, `--label KEY=VALUE` | Label the machine, on top of the image's own labels, like `docker --label`. Not inherited from the source. |
-| `--restart`, `-m`, `--cpus`, `--pids-limit` | Restart policy and limits, as for [start](#start). Not inherited from the source. |
+| `--restart`, `-m`, `--memory-swap`, `--cpus`, `--pids-limit` | Restart policy and limits, as for [start](#start). Not inherited from the source. |
 | the healthcheck options, the other options, `--interface`, `--secret` | As for [start](#start). Not inherited from the source. |
 | `-f`, `--force` | Replace an existing machine with the same name. |
 | `--no-verify` | Skip the signature check of an image that has to be pulled (a local source is not checked); like docker's `--disable-content-trust`. |
@@ -260,14 +260,14 @@ those of the
 ```text
 nspawn start NAME [--network NETWORK]... [--network-alias [NETWORK=]NAME]... [-p [IP:]HOST:CONTAINER[/udp]]...
              [--entrypoint PROGRAM] [-e VAR[=VALUE]]... [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]...
-             [--restart POLICY] [-m SIZE] [--cpus N] [--pids-limit N]
+             [--restart POLICY] [-m SIZE] [--memory-swap SIZE] [--cpus N] [--pids-limit N]
              [--health-cmd COMMAND] [--health-interval D] [--health-timeout D] [--health-retries N]
              [--health-start-period D] [--health-start-interval D] [--no-healthcheck]
              [--hostname NAME] [-u USER[:GROUP]] [-w DIR] [--cap-add CAP]... [--cap-drop CAP]... [--privileged]
              [--read-only] [--tmpfs PATH[:OPTIONS]]... [--shm-size SIZE]
              [--device HOST[:CONTAINER[:PERMISSIONS]]]... [--dns ADDRESS]... [--dns-search DOMAIN]...
              [--add-host HOST:IP]... [--ulimit NAME=SOFT[:HARD]]... [--oom-score-adj N]
-             [--stop-signal SIGNAL] [--stop-timeout SECONDS] [--init] [--sysctl KEY=VALUE]...
+             [--stop-signal SIGNAL] [--stop-timeout SECONDS] [--timezone MODE] [--init] [--sysctl KEY=VALUE]...
              [--interface IFACE]... [--secret NAME[:TARGET[:MODE[:UID:GID]]]]... [--image-command] [--no-wait]
              [-- ARGUMENTS...]
 ```
@@ -284,7 +284,8 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume, made on first use with what the image has at `TARGET`, as docker seeds one. Repeatable; `none` forgets them. |
 | `-l`, `--label KEY=VALUE` | Label the machine, on top of the image's own labels. Repeatable; `none` forgets them. |
 | `--restart no\|on-failure\|always\|unless-stopped` | Restart policy, like `docker --restart`. `always` and `unless-stopped` also start the machine at boot; `nspawn stop` takes an `unless-stopped` machine off the boot list until the next `start`. Applied at the next start; [update](#update) changes it at once. |
-| `-m`, `--memory SIZE` | Memory limit of the whole machine, like `docker -m`: `512m`, `2g` (at least `4m`), and as much swap again; `0` removes it. Applied at the next start; [update](#update) changes it at once. |
+| `-m`, `--memory SIZE` | Memory limit of the whole machine, like `docker -m`: `512m`, `2g` (at least `4m`), and as much swap again unless `--memory-swap` says otherwise; `0` removes it. Applied at the next start; [update](#update) changes it at once. |
+| `--memory-swap SIZE` | Memory and swap together, like `docker --memory-swap`: equal to `--memory` for no swap, larger for the difference, `-1` for swap without a bound; `0` goes back to as much swap again as memory. Needs `--memory`. Applied at the next start; [update](#update) changes it at once. |
 | `--cpus N` | CPU limit of the whole machine, like `docker --cpus`: `0.5`, `2`; `0` removes it. Applied at the next start; [update](#update) changes it at once. |
 | `--pids-limit N` | Most processes and threads the machine may have (at least 16 for a booted machine); `0` removes the limit. Applied at the next start; [update](#update) changes it at once. |
 | `--health-cmd COMMAND` | Command that says whether the machine is healthy, run inside it through `/bin/sh -c` at every interval, like `docker --health-cmd`: exit 0 is healthy. Replaces the image's `HEALTHCHECK`. [update](#update) changes it at once. |
@@ -311,6 +312,7 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--oom-score-adj N` | OOM score adjustment of the machine, -1000 to 1000. |
 | `--stop-signal SIGNAL` | Signal `stop` sends the program, instead of the image's (`SIGTERM`). |
 | `--stop-timeout SECONDS` | Seconds `stop` waits after the signal before SIGKILL, unless `-t` says otherwise. Default: 10. |
+| `--timezone MODE` | How systemd-nspawn sets the machine's `/etc/localtime` at each start, its `Timezone=`: `auto` (the default, the host's zone), `off` (left alone, so a zone set inside stays), `copy`, `bind`, `symlink` or `delete`. `auto` forgets the setting. |
 | `--init` | Accepted for docker's sake: nspawn's stub init reaps orphans anyway. App images only. |
 | `--sysctl KEY=VALUE` | A `net.*` sysctl for an app machine's network namespace. Repeatable; `none` forgets them. |
 | `--interface IFACE` | A network interface of the host, moved into the machine while it runs and given back when it stops: an ethernet one, or a wifi adapter with its whole phy (`iw` on the host for an app on the bridge, systemd 256 for a booted machine); the name is kept inside. Not with `--network host` or `container:NAME`; one machine at a time. See [Physical interfaces](/docs/networking/#physical-interfaces). Repeatable; `none` forgets them. |
@@ -430,7 +432,7 @@ printed once done. `ps` and `inspect` show a frozen machine as `paused`, and
 ## update
 
 ```text
-nspawn update NAME... [--restart POLICY] [-m SIZE] [--cpus N] [--pids-limit N]
+nspawn update NAME... [--restart POLICY] [-m SIZE] [--memory-swap SIZE] [--cpus N] [--pids-limit N]
               [--health-cmd COMMAND] [--health-interval D] [--health-timeout D] [--health-retries N]
               [--health-start-period D] [--health-start-interval D] [--no-healthcheck]
 ```
@@ -451,7 +453,9 @@ Runs a command inside a running machine of either kind, attached to the
 terminal when standard input and output are one, in the machine's namespaces,
 with the image's environment and the machine's `-e` variables. The program is found on the machine's `PATH` and
 runs with the machine's capabilities and resource limits, like its own
-processes; right after a start it waits, a few seconds at most, until
+processes, except `CAP_SYS_BOOT` in an app that shares the host's user namespace
+(unless `--privileged`), since the command does not carry the seccomp filter that
+keeps kexec out of the machine; right after a start it waits, a few seconds at most, until
 systemd-nspawn has finished confining the machine. Exits with the command's
 status.
 

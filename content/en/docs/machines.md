@@ -75,7 +75,8 @@ variables and the volumes of the last run:
   `--read-only`, `--tmpfs`, `--shm-size`, `--device`, `--dns`, `--dns-search`,
   `--add-host`, `--ulimit`, `--oom-score-adj`, `--stop-signal`,
   `--stop-timeout`, `--init` and `--sysctl` are the other flags of
-  `docker run`; see [The other flags of docker run](#the-other-flags-of-docker-run).
+  `docker run`, and `--timezone` says how systemd-nspawn sets
+  `/etc/localtime`; see [The other flags of docker run](#the-other-flags-of-docker-run).
 - `--secret` hands it a secret as a file; see [Secrets](#secrets).
 
 Machines are started by name. A reference (`fedora:44`, `docker.io/x`) is
@@ -277,8 +278,10 @@ good too, but does not take an `unless-stopped` one off the boot list, and a
 `-m`/`--memory` (`512m`, `2g`), `--cpus` (`0.5`, `2`) and `--pids-limit` bound
 the whole machine: they are the MemoryMax=, CPUQuota= and TasksMax= of its
 unit, which is why nothing inside shows them. As with docker, `--memory` also
-lets the machine use as much swap again (MemorySwapMax=), and no more. `0`
-removes a limit.
+lets the machine use as much swap again (MemorySwapMax=), and no more, unless
+`--memory-swap` gives memory and swap together, as docker takes it: equal to
+`--memory` for no swap, larger for the difference, `-1` for swap without a
+bound. `0` removes a limit, and brings `--memory-swap` back to its default.
 
 Both are remembered like the ports and apply at the next start, and
 `nspawn update` changes them without one, like `docker update`: a running
@@ -392,6 +395,11 @@ its unit:
 - `--stop-signal` and `--stop-timeout`: what `stop`, `restart` and `kill` use
   for the machine instead of the image's stop signal and the default 10
   seconds; `-t` on `stop` still wins.
+- `--timezone MODE`: how systemd-nspawn sets the machine's `/etc/localtime` at
+  each start. Its default, `auto`, points it at the host's zone every time, so
+  a zone set inside with `timedatectl` does not survive a restart; `off` leaves
+  the machine's own, and `copy`, `bind`, `symlink` and `delete` are its other
+  modes. An app also takes `-e TZ=`.
 - `--init`: accepted for docker's sake; nspawn's stub init reaps orphans
   anyway. App images only.
 - `--sysctl KEY=VALUE`: `net.*` keys, set in the network namespace nspawn
@@ -482,8 +490,10 @@ pipelines (what goes through stdin and stdout is byte exact). The program is
 looked up on the machine's `PATH`, the image's environment and the `-e`
 variables of the machine apply, and the working directory is the machine's.
 Neither D-Bus nor anything else is needed inside. The command runs with the
-machine's capabilities and resource limits, like the machine's own processes;
-right after a start it waits, a few seconds at most, until systemd-nspawn has
+machine's capabilities and resource limits, like the machine's own processes,
+except `CAP_SYS_BOOT` in an app that shares the host's user namespace (unless
+`--privileged`): the machine keeps it beside a seccomp filter that keeps kexec
+out, which the command does not carry. Right after a start it waits, a few seconds at most, until systemd-nspawn has
 finished confining the machine. The flags are `docker exec`'s: `-u USER[:GROUP]`
 takes names or numbers of the image's passwd and group files (with a group, that
 one is the only group), `-e` adds variables for this command, `-w` a working directory, `-T` refuses a

@@ -128,7 +128,7 @@ it is created or started; every one of them is remembered until it is changed:
   `--label`, `--entrypoint` and the arguments after `--` on `start`, `run` and
   `create`. `-p none`, `-e none`, `-v none`, `--label none`,
   `--network-alias none` and `--image-command` forget what was remembered.
-- `--restart`, `-m`/`--memory`, `--cpus` and `--pids-limit` on `start`, `run`
+- `--restart`, `-m`/`--memory`, `--memory-swap`, `--cpus` and `--pids-limit` on `start`, `run`
   and `create`, applied at the next start, and on `update`, applied at once.
   `--restart no` and a limit of `0` remove them.
 - The healthcheck (`--health-cmd` and the other `--health-*` flags,
@@ -137,7 +137,7 @@ it is created or started; every one of them is remembered until it is changed:
 - `--hostname`, `-u`, `-w`, `--cap-add`, `--cap-drop`, `--privileged`,
   `--read-only`, `--tmpfs`, `--shm-size`, `--device`, `--dns`, `--dns-search`,
   `--add-host`, `--ulimit`, `--oom-score-adj`, `--stop-signal`,
-  `--stop-timeout`, `--init`, `--sysctl` and `--secret` on `start`, `run` and
+  `--stop-timeout`, `--timezone`, `--init`, `--sysctl` and `--secret` on `start`, `run` and
   `create`, applied at the next start. A list takes `none` to forget it, a
   value an empty string or `0`, and `--privileged=false` and
   `--read-only=false` take those back.

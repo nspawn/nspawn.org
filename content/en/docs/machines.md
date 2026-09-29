@@ -16,7 +16,8 @@ without a password. The examples here use `sudo`.
 Every machine nspawn starts is the systemd unit `systemd-nspawn@NAME.service`,
 registered with systemd-machined under its name. `machinectl list`,
 `machinectl status NAME`, `systemctl status systemd-nspawn@NAME` and
-`journalctl -u systemd-nspawn@NAME` all work on it; nspawn adds the
+`journalctl -u systemd-nspawn@NAME` (with `--namespace=nspawn` for what the
+machine prints, see [logs](#logs)) all work on it; nspawn adds the
 docker-like commands on top.
 
 The unit also carries a drop-in, `nspawn-hooks.conf`, that calls nspawn around
@@ -75,7 +76,8 @@ variables and the volumes of the last run:
   `--read-only`, `--tmpfs`, `--shm-size`, `--device`, `--dns`, `--dns-search`,
   `--add-host`, `--ulimit`, `--oom-score-adj`, `--stop-signal`,
   `--stop-timeout`, `--init` and `--sysctl` are the other flags of
-  `docker run`, and `--timezone` says how systemd-nspawn sets
+  `docker run`, `--log-driver` where the program's output goes, and
+  `--timezone` how systemd-nspawn sets
   `/etc/localtime`; see [The other flags of docker run](#the-other-flags-of-docker-run).
 - `--secret` hands it a secret as a file; see [Secrets](#secrets).
 
@@ -98,8 +100,9 @@ options of both. What follows the image replaces an app's command, as with
 docker. Without `-d` it stays with the machine:
 
 - The machine's output follows until it ends, stdout and stderr together, a
-  line at a time. It is read from the journal, so `nspawn logs NAME` shows it
-  later, and the machine goes on should `run` be interrupted.
+  line at a time. It is read from nspawn's journal, so `nspawn logs NAME` shows
+  it later, and the machine goes on should `run` be interrupted. With
+  `--log-driver none` it comes straight from the program and nothing is kept.
 - `run` exits with the program's exit code, or 128 plus the signal it died of:
   130 after Ctrl-C, 137 after `kill`. Ctrl-C, SIGTERM, SIGHUP and SIGQUIT go to
   the program; a third Ctrl-C within a second leaves the machine running and
@@ -400,6 +403,18 @@ its unit:
   a zone set inside with `timedatectl` does not survive a restart; `off` leaves
   the machine's own, and `copy`, `bind`, `symlink` and `delete` are its other
   modes. An app also takes `-e TZ=`.
+- `--log-driver DRIVER`: where the program's output goes. `local`, the
+  default, sends it to journald's `nspawn` namespace, a journal of nspawn's
+  own apart from the system's, so that a program that writes a lot never
+  floods the host's logs; `logs` and an attached `run` read it, and
+  `journalctl --namespace=nspawn` shows every machine's. It holds 1 GiB at
+  most, shared by all machines, the oldest lines going first
+  (`/usr/lib/systemd/journald@nspawn.conf`, which
+  `/etc/systemd/journald@nspawn.conf` overrides). `journal` keeps the output
+  in the system's journal, and `none` drops it: `logs` then refuses the
+  machine, an attached `run` of an app still shows the output straight from
+  the program, and a booted machine, whose console goes nowhere, runs with
+  `-d`.
 - `--init`: accepted for docker's sake; nspawn's stub init reaps orphans
   anyway. App images only.
 - `--sysctl KEY=VALUE`: `net.*` keys, set in the network namespace nspawn
@@ -539,8 +554,11 @@ named volumes are nspawn's own and always work.
 sudo nspawn logs MACHINE... [-f] [-n N] [--since WHEN] [--until WHEN] [-t] [--all] [--inside]
 ```
 
-systemd-nspawn sends what the machine writes to its console to the journal of
-`systemd-nspawn@MACHINE.service`, and `logs` reads it with `journalctl`. By
+What the machine writes to its console goes, by default, to journald's
+`nspawn` namespace under `systemd-nspawn@MACHINE.service`, apart from the
+system's journal (see `--log-driver` above), and `logs` reads it with
+`journalctl`, together with the system's journal, where systemd's lines and
+what a machine wrote before 1.8.0 or with `--log-driver journal` are. By
 default only the machine's own output is shown, from every run of the unit,
 earlier ones included:
 

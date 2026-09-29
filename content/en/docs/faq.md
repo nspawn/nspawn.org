@@ -26,7 +26,7 @@ images on the hub contain systemd as well; images without an init system run as
 No. The commands and flags look alike on purpose (`-p`, `-e`, `-v`,
 `--entrypoint`, `create`, `exec`, `logs`), but the machines are systemd-nspawn
 containers managed by systemd: they are `systemd-nspawn@NAME.service` units,
-appear in `machinectl list`, log to the journal and boot a full init when the
+appear in `machinectl list`, log to journald and boot a full init when the
 image has one. nspawn's own service holds none of them open, there is no compose
 file and no orchestration.
 

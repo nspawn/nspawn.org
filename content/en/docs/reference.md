@@ -267,7 +267,7 @@ nspawn start NAME [--network NETWORK]... [--network-alias [NETWORK=]NAME]... [-p
              [--read-only] [--tmpfs PATH[:OPTIONS]]... [--shm-size SIZE]
              [--device HOST[:CONTAINER[:PERMISSIONS]]]... [--dns ADDRESS]... [--dns-search DOMAIN]...
              [--add-host HOST:IP]... [--ulimit NAME=SOFT[:HARD]]... [--oom-score-adj N]
-             [--stop-signal SIGNAL] [--stop-timeout SECONDS] [--timezone MODE] [--init] [--sysctl KEY=VALUE]...
+             [--stop-signal SIGNAL] [--stop-timeout SECONDS] [--timezone MODE] [--log-driver DRIVER] [--init] [--sysctl KEY=VALUE]...
              [--interface IFACE]... [--secret NAME[:TARGET[:MODE[:UID:GID]]]]... [--image-command] [--no-wait]
              [-- ARGUMENTS...]
 ```
@@ -313,6 +313,7 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--stop-signal SIGNAL` | Signal `stop` sends the program, instead of the image's (`SIGTERM`). |
 | `--stop-timeout SECONDS` | Seconds `stop` waits after the signal before SIGKILL, unless `-t` says otherwise. Default: 10. |
 | `--timezone MODE` | How systemd-nspawn sets the machine's `/etc/localtime` at each start, its `Timezone=`: `auto` (the default, the host's zone), `off` (left alone, so a zone set inside stays), `copy`, `bind`, `symlink` or `delete`. `auto` forgets the setting. |
+| `--log-driver DRIVER` | Where the program's output goes, like `docker --log-driver`: `local` (the default: journald's `nspawn` namespace, a journal of nspawn's own apart from the system's, capped at 1 GiB, which `logs` and an attached `run` read), `journal` (the system's journal) or `none` (dropped; `logs` refuses the machine, an attached `run` of an app still shows the output straight from the program, and a booted machine runs with `-d`). |
 | `--init` | Accepted for docker's sake: nspawn's stub init reaps orphans anyway. App images only. |
 | `--sysctl KEY=VALUE` | A `net.*` sysctl for an app machine's network namespace. Repeatable; `none` forgets them. |
 | `--interface IFACE` | A network interface of the host, moved into the machine while it runs and given back when it stops: an ethernet one, or a wifi adapter with its whole phy (`iw` on the host for an app on the bridge, systemd 256 for a booted machine); the name is kept inside. Not with `--network host` or `container:NAME`; one machine at a time. See [Physical interfaces](/docs/networking/#physical-interfaces). Repeatable; `none` forgets them. |
@@ -339,8 +340,9 @@ standard error, so that standard output carries the program's output alone.
 
 Without `-d`, `run` stays attached, as `docker run` does. The machine's output
 follows until the machine ends, a line at a time, stdout and stderr together:
-it is read from the journal, so `nspawn logs NAME` shows it later too, and the
-machine goes on should `run` be interrupted. `run` exits with the program's
+it is read from nspawn's journal, so `nspawn logs NAME` shows it later too, and
+the machine goes on should `run` be interrupted. With `--log-driver none` it
+comes straight from the program instead, and nothing is kept. `run` exits with the program's
 exit code, or 128 plus the signal it died of (130 after Ctrl-C, 137 after
 `kill`). Ctrl-C, SIGTERM, SIGHUP and SIGQUIT are passed on to the program; a
 third Ctrl-C within a second leaves the machine running and returns. A booted
@@ -523,7 +525,11 @@ nspawn logs MACHINE... [-f] [-n N] [--since WHEN] [--until WHEN] [-t] [--all] [-
 
 Shows what machines printed, like `docker logs`. With several machines every
 line carries its machine's name (`web | ...`), the way docker compose shows
-them.
+them. The lines come from nspawn's journal namespace (`--log-driver local`, the
+default) and from the system's journal, which holds what a machine wrote before
+1.8.0 or with `--log-driver journal`. A machine started with `--log-driver none`
+keeps nothing, and `logs` says so (a booted one's own journal is still there
+with `--inside`).
 
 | Option | Meaning |
 | --- | --- |

@@ -53,7 +53,7 @@ params:
   privacy_policy: /about/#privacy
 
   # Version of nspawn the documentation describes.
-  version: 1.7.2
+  version: 1.8.0
   archived_version: false
 
   # In-page links to open issues and suggest changes.

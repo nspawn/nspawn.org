@@ -137,7 +137,7 @@ it is created or started; every one of them is remembered until it is changed:
 - `--hostname`, `-u`, `-w`, `--cap-add`, `--cap-drop`, `--privileged`,
   `--read-only`, `--tmpfs`, `--shm-size`, `--device`, `--dns`, `--dns-search`,
   `--add-host`, `--ulimit`, `--oom-score-adj`, `--stop-signal`,
-  `--stop-timeout`, `--timezone`, `--init`, `--sysctl` and `--secret` on `start`, `run` and
+  `--stop-timeout`, `--timezone`, `--log-driver`, `--init`, `--sysctl` and `--secret` on `start`, `run` and
   `create`, applied at the next start. A list takes `none` to forget it, a
   value an empty string or `0`, and `--privileged=false` and
   `--read-only=false` take those back.

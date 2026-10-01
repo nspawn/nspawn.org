@@ -38,7 +38,10 @@ A package brings the binary and the service it runs as. Every
 [release](https://github.com/nspawn/nspawn/releases) carries an RPM for Fedora,
 a package for Arch, a `.deb` built on Ubuntu 24.04 that also fits later Debian
 and Ubuntu releases, the plain binary in a tarball, and a `SHA256SUMS` over all
-of them.
+of them. On Arch Linux the AUR has two packages as well:
+[nspawn](https://aur.archlinux.org/packages/nspawn), built from the latest
+release, and [nspawn-git](https://aur.archlinux.org/packages/nspawn-git), from
+the latest commit on `master`.
 
 On Fedora or RHEL with SELinux enforcing, the `nspawn-selinux` package carries
 the domain the service runs in; the RPM recommends it, so a plain `dnf install`

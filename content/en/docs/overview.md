@@ -79,7 +79,9 @@ Both are for administrators by default, so `sudo nspawn ...` works as it always
 did, and a desktop session (or a terminal where you started `pkttyagent`) is
 asked for a password instead. Root is never asked, which is also how the
 service keeps working where polkit is not installed: there, nobody but root can
-call it.
+call it. One interface asks nothing: `org.nspawn.Names` hands out the names of
+machines, images, networks and volumes, and nothing else about them, to any
+user.
 
 To drive nspawn without a password, an administrator hands an action to a group
 in a rule of their own. The packages ship one as an example in their

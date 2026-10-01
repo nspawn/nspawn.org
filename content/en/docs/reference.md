@@ -769,9 +769,24 @@ not a command to type; `--install` is.
 nspawn completions bash|elvish|fish|powershell|zsh
 ```
 
-Writes the completions for that shell on standard output; they come from the
-same definition the command line itself is built from. The packages install
-them, so this is for a binary you built yourself:
+Writes the completions for that shell on standard output. Commands and flags
+come from the same definition the command line itself is built from; besides
+them, TAB completes names, asked from the service as it goes:
+
+| After | TAB offers |
+| --- | --- |
+| `stop`, `exec`, `kill`, `pause`, `unpause`, `top`, `shell`, `stats` | the running machines |
+| `start` | the images that do not run |
+| `rm`, `inspect`, `logs`, `restart`, `update`, `images rm` | every machine and image |
+| `create`, `push` | the local images |
+| `run` | the references of the local images |
+| `--network` | the networks, and `host`, `none` and `veth` |
+| `network rm`, `network inspect` | the networks |
+| `volume rm` | the volumes |
+
+The service hands those names to any user without asking polkit, so this works
+under `sudo` and without a password; secrets are not completed. The packages
+install the completions, so this is for a binary you built yourself:
 
 ```shell
 nspawn completions bash > ~/.local/share/bash-completion/completions/nspawn

@@ -785,8 +785,10 @@ them, TAB completes names, asked from the service as it goes:
 | `volume rm` | the volumes |
 
 The service hands those names to any user without asking polkit, so this works
-under `sudo` and without a password; secrets are not completed. The packages
-install the completions, so this is for a binary you built yourself:
+under `sudo` and without a password; secrets are not completed. The flags come
+once the word starts with `-` (`-` brings the short forms, `--` the long ones),
+or where there is no name to offer. The packages install the completions, so
+this is for a binary you built yourself:
 
 ```shell
 nspawn completions bash > ~/.local/share/bash-completion/completions/nspawn

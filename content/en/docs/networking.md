@@ -249,8 +249,10 @@ must go through it, for one): the same interfaces and address, `NAME`'s hosts
 and resolv.conf files, and nothing of the machine's own. A port the program
 serves is published with `-p` on `NAME`, since that is where the address is.
 `NAME` can be an app or a booted machine on any bridge network, has to be
-running when the machine starts, and cannot be removed while a machine names
-it. When `NAME` stops or restarts, the machine keeps the namespace it joined,
+running when the machine starts (`--depends-on NAME` has it started first, at
+boot as well), and cannot be removed while a machine names it, unless that
+machine goes in the same `rm`. When `NAME` stops or restarts, the machine keeps
+the namespace it joined,
 which then leads nowhere, and has to be restarted to join the new one, as with
 docker.
 

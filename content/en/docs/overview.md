@@ -37,12 +37,15 @@ machines with a docker-like workflow:
   `--entrypoint` and the arguments after `--` change what an app runs, `-l`
   labels it, `--restart` gives it a restart policy, `-m`, `--cpus` and
   `--pids-limit` bound its resources, `--health-cmd` probes it, `--secret`
-  hands it a secret, and `--hostname`, `-u`, `--cap-drop`, `--read-only`,
+  hands it a secret, `--depends-on` starts other machines before it, at boot
+  as well, and `--hostname`, `-u`, `--cap-drop`, `--read-only`,
   `--tmpfs`, `--device`, `--dns`, `--add-host`, `--ulimit` and the rest of
   `docker run`'s flags mean what they mean there.
 - `build` runs mkosi on a directory with a `mkosi.conf` and imports the result
   as a local image; `push` uploads an image to a registry, skipping the layers
   that are already there.
+- `generate` prints the commands that make the same machines on another host,
+  every flag they keep included.
 
 The work is done by a service on the system bus, `org.nspawn`, and the command
 line is one of its clients, the way `machinectl` and `systemctl` are clients of
@@ -72,7 +75,7 @@ two actions:
 
 | Action | Methods |
 | --- | --- |
-| `org.nspawn.inspect` | The ones that only read: `images ls`, `ps` and `machines ls`, `inspect`, `top`, `stats`, `events`, `network ls` and `network inspect`, `volume ls`, `secret ls` and `secret inspect`. |
+| `org.nspawn.inspect` | The ones that only read: `images ls`, `ps` and `machines ls`, `inspect`, `generate`, `top`, `stats`, `events`, `network ls` and `network inspect`, `volume ls`, `secret ls` and `secret inspect`. |
 | `org.nspawn.manage` | Everything else: pulling, building, starting, stopping, restarting, pausing, removing, `exec`, `shell`, `cp`, `logs`, volumes, secrets, the registry commands and the credentials. |
 
 Both are for administrators by default, so `sudo nspawn ...` works as it always

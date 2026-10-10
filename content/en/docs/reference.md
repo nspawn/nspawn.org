@@ -13,7 +13,7 @@ are printed as `error: ...` on standard error and the exit status is 1;
 Every command but `daemon`, `completions` and the unit hooks is a call to the
 [service](/docs/overview/#the-service) on the system bus, which asks polkit
 whether the caller may take the action: the listings (`images ls`, `ps`,
-`machines ls`, `inspect`, `top`, `stats`, `events`, `network ls`,
+`machines ls`, `inspect`, `generate`, `top`, `stats`, `events`, `network ls`,
 `network inspect`, `volume ls`, `secret ls`, `secret inspect`) ask for
 `org.nspawn.inspect`; everything else, `search` and `hub` included, asks for
 `org.nspawn.manage`. Both are for administrators by default, and root is never
@@ -122,7 +122,7 @@ nspawn create SOURCE NAME [--backend BACKEND] [--network NETWORK]... [--network-
               [-p [IP:]HOST:CONTAINER[/udp]]... [--entrypoint PROGRAM] [-e VAR[=VALUE]]...
               [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]... [--restart POLICY] [-m SIZE] [--memory-swap SIZE]
               [--cpus N] [--pids-limit N] [HEALTHCHECK OPTIONS] [OTHER OPTIONS] [--interface IFACE]... [--secret SECRET]...
-              [-f] [--no-verify] [-- ARGUMENTS...]
+              [--depends-on NAME[:CONDITION][:optional]]... [-f] [--no-verify] [-- ARGUMENTS...]
 ```
 
 Makes another machine from a local image, like `docker create`, without
@@ -142,7 +142,7 @@ the image's own name, as `run` does. The layers are shared with the source.
 | `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume, like `docker -v`. |
 | `-l`, `--label KEY=VALUE` | Label the machine, on top of the image's own labels, like `docker --label`. Not inherited from the source. |
 | `--restart`, `-m`, `--memory-swap`, `--cpus`, `--pids-limit` | Restart policy and limits, as for [start](#start). Not inherited from the source. |
-| the healthcheck options, the other options, `--interface`, `--secret` | As for [start](#start). Not inherited from the source. |
+| the healthcheck options, the other options, `--interface`, `--secret`, `--depends-on` | As for [start](#start). Not inherited from the source. |
 | `-f`, `--force` | Replace an existing machine with the same name. |
 | `--no-verify` | Skip the signature check of an image that has to be pulled (a local source is not checked); like docker's `--disable-content-trust`. |
 | `-- ARGUMENTS...` | App images: replace the image's cmd; they follow its entrypoint, as with docker. |
@@ -220,6 +220,11 @@ Every name is tried; one that cannot be removed, or that nothing is behind
 (`no machine or image named NAME`), is reported at the end. Named volumes are
 kept, and each one kept is mentioned.
 
+A machine that others depend on (`--depends-on`) or take their network from
+(`--network container:NAME`) is refused, unless they are named in the same
+command: they are removed first and the machine after them, and one of them
+that stays (running, without `-f`) keeps it.
+
 | Option | Meaning |
 | --- | --- |
 | `-f`, `--force` | Stop a running (or restarting) machine first, with SIGKILL, instead of refusing it. |
@@ -249,11 +254,35 @@ Prints everything nspawn knows about machines or images, running or not, as a
 JSON array with one object per name, like `docker inspect`: the record (image
 reference, digest, backend, mode, networks, addresses, aliases, ports, volumes,
 environment, command, labels, restart policy, limits, healthcheck, secrets,
-the other flags, and who signed the image and when, as the pull verified it:
+the machines it depends on (`depends_on`), the other flags, and who signed the
+image and when, as the pull verified it:
 `signed_by`, `signed_at`), for a running machine its state, start time, leader
 PID, OS and health, and for a stopped one the exit code of its last run. The keys are
 those of the
 [D-Bus interface](https://github.com/nspawn/nspawn/blob/master/docs/DBUS.md).
+
+## generate
+
+```text
+nspawn generate [NAME...]
+```
+
+Prints the nspawn commands that make machines again, on another host or on
+this one, as a shell script: `network create` for the networks they join, then
+`run -d --pull always` for each machine with every flag it keeps, after the
+machines it depends on or takes its network from, which come along when they
+are not named. An image without flags of its own is pulled again instead,
+unless another machine takes its network. Without names it covers every
+machine nspawn has. What a flag cannot carry is said in comments at the top:
+secrets, encrypted for this host, which `nspawn secret create` makes again on
+the other one; host directories a machine mounts; images built on this host,
+which have to be pushed first. The contents of volumes and of a machine's
+writable layer, and its addresses, stay behind. See
+[The same machines on another host](/docs/machines/#the-same-machines-on-another-host).
+
+| Option | Meaning |
+| --- | --- |
+| `NAME...` | Machines to make again. Default: every machine of nspawn's. |
 
 ## start
 
@@ -268,7 +297,8 @@ nspawn start NAME [--network NETWORK]... [--network-alias [NETWORK=]NAME]... [-p
              [--device HOST[:CONTAINER[:PERMISSIONS]]]... [--dns ADDRESS]... [--dns-search DOMAIN]...
              [--add-host HOST:IP]... [--ulimit NAME=SOFT[:HARD]]... [--oom-score-adj N]
              [--stop-signal SIGNAL] [--stop-timeout SECONDS] [--timezone MODE] [--log-driver DRIVER] [--init] [--sysctl KEY=VALUE]...
-             [--interface IFACE]... [--secret NAME[:TARGET[:MODE[:UID:GID]]]]... [--image-command] [--no-wait]
+             [--interface IFACE]... [--secret NAME[:TARGET[:MODE[:UID:GID]]]]...
+             [--depends-on NAME[:CONDITION][:optional]]... [--image-command] [--no-wait]
              [-- ARGUMENTS...]
 ```
 
@@ -318,6 +348,7 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--sysctl KEY=VALUE` | A `net.*` sysctl for an app machine's network namespace. Repeatable; `none` forgets them. |
 | `--interface IFACE` | A network interface of the host, moved into the machine while it runs and given back when it stops: an ethernet one, or a wifi adapter with its whole phy (`iw` on the host for an app on the bridge, systemd 256 for a booted machine); the name is kept inside. Not with `--network host` or `container:NAME`; one machine at a time. See [Physical interfaces](/docs/networking/#physical-interfaces). Repeatable; `none` forgets them. |
 | `--secret NAME[:TARGET[:MODE[:UID:GID]]]` | A secret made with [secret create](#secret-create) as a read-only file inside the machine, like docker's `--secret`: `NAME` alone is `/run/secrets/NAME` with mode 0444, root's. Repeatable; `none` forgets them. Not on `mstack` machines. |
+| `--depends-on NAME[:CONDITION][:optional]` | Another machine of nspawn's to start first, like compose's `depends_on`, and what to wait for: `started` (the default: its start went through), `healthy` (its healthcheck says healthy; it needs one) or `completed` (its program ended with 0; it runs again at every start). With `:optional` a failure of it is a warning and the machine starts anyway. systemd keeps the order, at boot and for a restart policy as well. See [Dependencies](/docs/machines/#dependencies). Repeatable; `none` forgets them. |
 | `--image-command` | Forget the remembered entrypoint and arguments and run the image's own again. |
 | `--no-wait` | Do not wait for a booted machine's init to be up before returning. Its registration is still awaited, so that ports and firewall rules can be applied. |
 | `-- ARGUMENTS...` | App images: replace the image's cmd; they follow its entrypoint, as with docker. |
@@ -362,7 +393,7 @@ image shows its console until it powers off, and Ctrl-C powers it off.
 | `--mode auto\|boot\|app` | As for `pull`; a mode other than `auto` always pulls. |
 | `-f`, `--force` | Make the machine anew when one of that name exists; it must be stopped. |
 | `--no-verify` | Skip the signature check of the image, as for `pull`. |
-| the options of `start` | `--network`, `--network-alias`, `-p`, `--entrypoint`, `-e`, `-v`, `-l`, `--restart`, `-m`, `--cpus`, `--pids-limit`, the healthcheck options, the other options, `--interface`, `--secret` and `--no-wait` (with `-d` only), as for [start](#start). Options may come before or after the reference, as long as they come before the command. |
+| the options of `start` | `--network`, `--network-alias`, `-p`, `--entrypoint`, `-e`, `-v`, `-l`, `--restart`, `-m`, `--cpus`, `--pids-limit`, the healthcheck options, the other options, `--interface`, `--secret`, `--depends-on` and `--no-wait` (with `-d` only), as for [start](#start). Options may come before or after the reference, as long as they come before the command. |
 
 ## stop
 
@@ -777,7 +808,7 @@ them, TAB completes names, asked from the service as it goes:
 | --- | --- |
 | `stop`, `exec`, `kill`, `pause`, `unpause`, `top`, `shell`, `stats` | the running machines |
 | `start` | the images that do not run |
-| `rm`, `inspect`, `logs`, `restart`, `update`, `images rm` | every machine and image |
+| `rm`, `inspect`, `generate`, `logs`, `restart`, `update`, `images rm`, `--depends-on` | every machine and image |
 | `create`, `push` | the local images |
 | `run` | the references of the local images |
 | `--network` | the networks, and `host`, `none` and `veth` |
@@ -801,6 +832,7 @@ nspawn completions bash > ~/.local/share/bash-completion/completions/nspawn
 `nspawn network prepare NAME`, `nspawn network publish NAME` and
 `nspawn network release NAME` are what the drop-in of
 `systemd-nspawn@NAME.service` runs as `ExecStartPre`, `ExecStartPost` and
-`ExecStopPost`, and `nspawn health-run NAME` is what
+`ExecStopPost`, preceded by `nspawn await-dependencies NAME` for a machine
+with `--depends-on`, and `nspawn health-run NAME` is what
 `nspawn-health-NAME.service` runs to probe a machine's healthcheck. They are
 not meant to be typed and are hidden from `--help`.

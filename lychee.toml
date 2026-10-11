@@ -26,6 +26,10 @@ exclude = [
   # pages are fine in a browser).
   '^https://www\.freedesktop\.org/',
 
+  # GitHub answers 503 to a rendered Markdown page of a repository requested without
+  # a session (its code pages are fine).
+  '^https://github\.com/nspawn/nspawn/blob/[^?#]+\.md(#.*)?$',
+
   # Chat clients: single-page apps whose room fragments cannot be checked.
   '^https://matrix\.to/',
   '^https://web\.libera\.chat/',

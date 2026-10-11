@@ -4,8 +4,9 @@ weight: 4
 description: >-
   Starting and stopping machines, run like docker run, entrypoints,
   environment, volumes and labels, restart policies and resource limits,
-  running commands inside, copying files, output, usage and events, removing
-  machines, and how boot and app images differ.
+  dependencies, running commands inside, copying files, output, usage and
+  events, removing machines, making them again elsewhere, and how boot and app
+  images differ.
 ---
 
 Every one of these commands is a call to the
@@ -23,7 +24,9 @@ docker-like commands on top.
 The unit also carries a drop-in, `nspawn-hooks.conf`, that calls nspawn around
 the machine's life: `ExecStartPre` prepares its network and settings,
 `ExecStartPost` publishes its ports once it is registered, and `ExecStopPost`
-releases everything however the machine ended. So `machinectl start NAME`,
+releases everything however the machine ended; a machine with
+[dependencies](#dependencies) first waits for them in another `ExecStartPre`.
+So `machinectl start NAME`,
 `systemctl enable systemd-nspawn@NAME` for a machine that comes up at boot, a
 program that exits on its own or a crash all behave like `nspawn start` and
 `nspawn stop`. The drop-in names the nspawn binary that wrote it, which is why
@@ -39,8 +42,8 @@ sudo nspawn start NAME [--network NETWORK]... [--network-alias [NETWORK=]NAME]..
                   [-p [IP:]HOST:CONTAINER[/udp]]... [--entrypoint PROGRAM] [-e VAR[=VALUE]]...
                   [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]... [--restart POLICY] [-m SIZE]
                   [--cpus N] [--pids-limit N] [HEALTHCHECK OPTIONS] [OTHER OPTIONS]
-                  [--secret NAME[:TARGET[:MODE[:UID:GID]]]]... [--image-command] [--no-wait]
-                  [-- ARGUMENTS...]
+                  [--secret NAME[:TARGET[:MODE[:UID:GID]]]]... [--depends-on NAME[:CONDITION][:optional]]...
+                  [--image-command] [--no-wait] [-- ARGUMENTS...]
 ```
 
 `start` regenerates `/etc/systemd/nspawn/NAME.nspawn` from the machine's
@@ -344,6 +347,55 @@ retries fail in a row; a success brings it back.
   probes start afresh.
 
 A stopped machine has no health, and neither has one without a healthcheck.
+
+## Dependencies
+
+```shell
+sudo nspawn network create shop
+printf 'example' | sudo nspawn secret create pgpass
+sudo nspawn run -d docker.io/library/postgres:17 --name db --network shop -v pgdata:/var/lib/postgresql/data \
+  --secret pgpass -e POSTGRES_PASSWORD_FILE=/run/secrets/pgpass --health-cmd "pg_isready -U postgres" --health-interval 2s
+sudo nspawn run -d docker.io/library/nginx:1.27 --name web --network shop -p 8080:80 --depends-on db:healthy
+```
+
+`--depends-on NAME[:CONDITION][:optional]` on `run`, `create` and `start` is
+compose's `depends_on` for one machine: the other machine is started first,
+and this one waits for what the condition asks of it.
+
+| Condition | Waits until |
+| --- | --- |
+| `started` (the default) | the other machine's start went through. |
+| `healthy` | its healthcheck says healthy; it needs one, and an unhealthy verdict fails the start. |
+| `completed` | its program ended with 0, for a machine that prepares something and exits, such as a migration; it runs again at every start of the machines that depend on it, as with `docker compose up`. |
+
+With `:optional` a failure of the other machine is a warning and this one
+starts anyway. The flag is repeatable and remembered like the rest,
+`--depends-on none` forgets them, and `inspect` lists them as `depends_on`.
+The machines named must be nspawn's, a machine cannot depend on itself, and a
+cycle is refused, `--network container:` counting as a dependency.
+
+systemd does the work: the machine's unit wants the other one's and is ordered
+after it, and its first hook, `nspawn await-dependencies`, waits for the
+condition. So `machinectl start`, a start at boot and a restart policy follow
+the same order as `nspawn start`, which says which machines it started first:
+
+```text
+$ sudo nspawn stop web db
+stopped web
+stopped db
+$ sudo nspawn start web
+started web
+db started first: web depends on it
+```
+
+When a dependency fails, the start fails with its reason
+(`web did not start: ...`). A start that waits for `healthy` or `completed`,
+directly or through the machines its dependencies depend on, has no time
+limit, since it lasts as long as the other machine takes; `nspawn stop` ends
+it. A machine on another one's network (`--network container:NAME`) that also
+depends on it gets it started first. Stopping a machine leaves the ones that
+depend on it running, as compose does, and `rm` refuses a machine others
+depend on unless they go in the same command.
 
 ## The other flags of docker run
 
@@ -714,3 +766,46 @@ restart policy made, and the layers nobody else uses. A pulled image is a
 machine too, so `rm` and `images rm` remove the same thing; `rm -f` stops a
 running machine first where both refuse otherwise. Named volumes are kept, and
 `rm` says which.
+
+A machine that others depend on (`--depends-on`) or take their network from
+(`--network container:NAME`) stays while they are there. Named in the same
+command, they are removed first and the machine after them; one of them that
+stays (running, without `-f`) keeps it too.
+
+## The same machines on another host
+
+`nspawn generate [NAME...]` prints the commands that make machines again, on
+another host or on this one after a reinstall: a shell script with
+`network create` for the networks they join, then `run -d` for each machine
+with every flag it keeps, after the machines it depends on or takes its network
+from, which come along when they are not named. Without names it covers every
+machine nspawn has. For the two machines of [Dependencies](#dependencies):
+
+```text
+$ sudo nspawn generate web
+# secret pgpass is encrypted for this host: nspawn secret create pgpass where this script runs, before it
+nspawn network create shop --subnet 10.99.1.0/24
+nspawn run -d --name db --pull always docker.io/library/postgres:17 \
+  --network shop \
+  --env POSTGRES_PASSWORD_FILE=/run/secrets/pgpass \
+  --volume pgdata:/var/lib/postgresql/data \
+  --health-cmd 'pg_isready -U postgres' \
+  --health-interval 2s \
+  --secret pgpass:/run/secrets/pgpass:0444:0:0
+nspawn run -d --name web --pull always docker.io/library/nginx:1.27 \
+  --network shop \
+  --publish 8080:80 \
+  --depends-on db:healthy
+```
+
+Each `run -d` pulls its machine on its own (`--pull always`; blobs already
+there are not downloaded again), so that a machine never takes the network
+kind, mode or backend of another one made from the same image. An image
+without flags of its own is pulled again instead of run, unless another
+machine takes its network, which needs it running. What a flag cannot carry is
+said in comments at the top: a secret is encrypted for this host, so
+`nspawn secret create` it there first; a host directory a machine mounts has
+to exist there; an image built here has to be pushed first. The contents of
+named volumes and of a machine's writable layer, and its addresses, stay
+behind: volumes are seeded again from the image, and the addresses are handed
+out anew.

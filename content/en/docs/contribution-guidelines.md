@@ -1,6 +1,6 @@
 ---
 title: Contributing
-weight: 10
+weight: 12
 description: >-
   Where the code lives, how to build and test it, and how to send changes.
 ---

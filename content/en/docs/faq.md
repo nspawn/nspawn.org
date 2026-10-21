@@ -1,6 +1,6 @@
 ---
 title: FAQ
-weight: 9
+weight: 11
 description: >-
   Short answers to the questions that come up most.
 ---
@@ -27,17 +27,20 @@ No. The commands and flags look alike on purpose (`-p`, `-e`, `-v`,
 `--entrypoint`, `create`, `exec`, `logs`), but the machines are systemd-nspawn
 containers managed by systemd: they are `systemd-nspawn@NAME.service` units,
 appear in `machinectl list`, log to journald and boot a full init when the
-image has one. nspawn's own service holds none of them open, there is no compose
-file and no orchestration.
+image has one. nspawn's own service holds none of them open. docker compose
+files run with `nspawn compose`, Dockerfiles build with `nspawn build`, and a
+machine that mounts docker's socket gets a Docker API that reverse proxies and
+dashboards read, but there is no orchestration across hosts.
 
 ## Can I run images from Docker Hub?
 
 Yes. `sudo nspawn search nginx` finds them, and
 `sudo nspawn pull docker.io/library/nginx:latest --name web` fetches one like
 any other registry image. Since it has no init system, it is installed as an
-app image: its entrypoint runs under nspawn's stub init, on the bridge, with
-`-p` for its ports. Docker Hub limits anonymous pulls per address;
-`sudo nspawn login docker.io -u USER` lifts that. See
+app image: its entrypoint runs under systemd-nspawn's stub init, on the bridge,
+with `-p` for its ports. An image that carries s6-overlay, as linuxserver.io's
+do, runs its `/init` as PID 1 instead. Docker Hub limits anonymous pulls per
+address; `sudo nspawn login docker.io -u USER` raises the limit. See
 [Getting started](/docs/getting-started/#an-app-from-docker-hub).
 
 ## Do I need root?
@@ -47,8 +50,8 @@ the service asks polkit about the caller: root is never asked, an administrator
 is asked for a password (a desktop session prompts; in a plain terminal, start
 `pkttyagent` first), and a rule of your own can hand the actions to a group so
 that nobody is asked at all. The work does need privileges, since the machines
-live below `/var/lib/machines` and the bridge is the host's, which is why the
-service is the one holding them.
+live below `/var/lib/machines` and the bridge is the host's, so the service,
+which runs as root, does it.
 
 On a host without polkit the service answers root alone. See
 [The service](/docs/overview/#the-service) for the two actions and the rule.
@@ -58,9 +61,11 @@ On a host without polkit the service answers root alone. See
 Where the work happens. The command line is its client, the way `machinectl`
 and `systemctl` are clients of machined and systemd: every command is a method
 call, and pulls, pushes, builds, creates, removals and copies come back as job
-objects that report their output. The bus starts the service when a command arrives and it exits
-after a minute without work, so nothing of nspawn's runs in the background
-otherwise. A package installs it; for a binary you built yourself,
+objects that report their output. The bus starts the service when a command
+arrives and it exits after a minute without work. Between commands only a
+machine's healthcheck, the Docker API of a machine that asked for one and the
+`auto-update` timer, once enabled, run. A package installs it; for a binary you
+built yourself,
 `sudo nspawn daemon --install`. Its journal is `journalctl -u nspawn.service`,
 and the interface is described in `docs/DBUS.md` of the repository. After an
 upgrade the service keeps running the binary it started with until it goes
@@ -77,10 +82,10 @@ it: keyless, with the identity of that workflow on `master` (a short-lived
 certificate from Fulcio, recorded in the Rekor transparency log), and with the
 project's key, whose public half is `cosign.pub` in that repository. The
 signatures are stored on the hub next to the image, as OCI referrers of its
-digest, so they cover every tag that points to it, and the hub verifies the
-key one itself and shows the image as signed.
+digest, so they cover every tag that points to it, and the hub itself verifies
+the key signature and shows the image as signed.
 
-`nspawn pull` verifies them too, since 1.5.0: before a single layer is
+`nspawn pull` verifies them too: before a single layer is
 downloaded, one of the two signatures has to verify offline against the
 project's key and the workflow's identity, both built into nspawn, and an
 image without a valid signature is refused (`--no-verify` skips the check for
@@ -153,7 +158,8 @@ ports whoever starts the machine.
 ## How do I get a machine's address from the host?
 
 `sudo nspawn ps` shows it, and `sudo nspawn network inspect bridge` (or the
-name of another network) lists the machines of a network with their addresses. Inside the machines, the other
+name of another network) lists the machines of a network with their addresses.
+Inside the machines, the other
 machines are reachable by name and the host as `host.nspawn.internal`; on hosts
 with systemd 258 or newer, machined resolves the machine names on the host as
 well.
@@ -164,7 +170,12 @@ well.
 afterwards every layer and blob that no remaining image references. Overlay
 machines keep their writes in a private directory under `/var/lib/nspawn`,
 which goes away with the image; named volumes stay until `sudo nspawn volume rm
-NAME` or `sudo nspawn volume prune`.
+NAME` or `sudo nspawn volume prune`. `sudo nspawn system df` shows what images,
+machines, volumes and the build cache take. `sudo nspawn system prune` removes
+stopped machines made from an image (by `create` or `run`), unused networks and
+the build cache no image uses, `-a` unused images and the whole build cache too;
+named volumes go with `volume prune`, and `sudo nspawn builder prune` takes the
+build cache alone.
 
 ## Where do I ask or report a problem?
 

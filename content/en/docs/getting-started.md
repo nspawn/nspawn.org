@@ -12,9 +12,9 @@ description: >-
   newer** (255, 259 and 262 are the ones the test suite runs against; 252 cannot
   mount the files nspawn generates under a machine's `/run`). cgroup v2 is
   required.
-- **overlayfs** on **Linux 6.5 or newer** for the `overlay` backend, which is
-  the default and what app images always use (the layers are mounted with
-  `lowerdir+=`). Without it images are extracted as flat directories.
+- **Linux 6.5 or newer** with **overlayfs** for the default `overlay` backend (the
+  layers are mounted with `lowerdir+=`). On a kernel without overlayfs, `auto`
+  extracts images as flat directories.
 - **iproute2** and **nftables** (`ip` and `nft`) for the bridge network. Nothing
   else: the bridge does not need systemd-networkd or NetworkManager on the host.
   Only `--network veth` needs systemd-networkd, and only `--interface` with a
@@ -23,18 +23,18 @@ description: >-
 - **Root, or an administrator with polkit.** Every command is a call to the
   [service](/docs/overview/#the-service) on the system bus, which asks polkit
   who you are: root is never asked, an administrator is asked for a password,
-  and a polkit rule can hand the actions to a group. The examples below use
+  and a polkit rule can hand the actions to a group. The packages recommend
+  polkit; without it the service answers root alone. The examples below use
   `sudo`, which works everywhere, including hosts without polkit.
 - **D-Bus inside a booted machine** for `shell`, which uses machined's login
   session; the hub images have it. `exec` enters the machine's namespaces and
   needs nothing inside.
-- **polkit** if anyone other than root is to run the commands. The packages
-  recommend it; without it the service answers root alone.
-- **mkosi** only if you want to [build images](/docs/building/).
+- **mkosi** only if you want to [build images](/docs/building/) from an mkosi
+  configuration; Dockerfiles build with nspawn's own builder.
 
 ## Installation
 
-A package brings the binary and the service it runs as. Every
+A package brings the binary and the files of its service. Every
 [release](https://github.com/nspawn/nspawn/releases) carries an RPM for Fedora,
 a package for Arch, a `.deb` built on Ubuntu 24.04 that also fits later Debian
 and Ubuntu releases, the plain binary in a tarball, and a `SHA256SUMS` over all
@@ -49,7 +49,7 @@ of the package brings it along. Without it the service runs unconfined and the
 bus drops it when it passes a descriptor, which is what `exec`, `shell`,
 `logs` and `cp` do: the rest of the commands work either way.
 
-To build it yourself you need a Rust toolchain of version 1.85 or newer:
+To build it yourself you need a Rust toolchain of version 1.88 or newer:
 
 ```shell
 git clone https://github.com/nspawn/nspawn.git
@@ -61,16 +61,17 @@ nspawn --version
 ```
 
 `daemon --install` writes the bus policy, the polkit actions, the activation
-file and the unit that let the bus start the service on demand, naming the
-binary you just installed; a package does the same for you. Install the binary
-in `/usr/local/bin` or `/usr/bin`, not below a home directory: the unit of every
-machine calls nspawn by the path it was installed from, and on SELinux hosts a
-system service is refused a binary under `/home`.
+file and the unit that let the bus start the service on demand, all naming the
+binary you just installed, plus the units of the [Docker API](/docs/docker-api/)
+and of `auto-update` (its timer stays disabled). A package installs the same
+files. Install the binary in `/usr/local/bin` or `/usr/bin`, not below a home
+directory: the unit of every machine calls nspawn by the path it was installed
+from, and on SELinux hosts a system service is refused a binary under `/home`.
 
 On a host with SELinux enforcing, a binary installed by hand keeps the label of
-where it sits, and a service that is not `nspawn_exec_t` runs unconfined, so
-`exec`, `shell`, `logs` and `cp` fail with the client disconnected. `daemon --install`
-says so, and this is the fix:
+where it sits, and a service whose binary is not labelled `nspawn_exec_t` runs
+unconfined, so `exec`, `shell`, `logs` and `cp` fail with the client
+disconnected. `daemon --install` says so, and this is the fix:
 
 ```shell
 sudo semanage fcontext -a -t nspawn_exec_t /usr/local/bin/nspawn
@@ -115,10 +116,11 @@ image fedora-44 (boot image) is ready: nspawn start fedora-44
 
 The image's signature was checked first (every image on the hub is signed by
 the workflow that builds it; see [Signed images](/docs/images/#signed-images)),
-then the blobs went to `/var/lib/nspawn`, the root file system of the machine is
-mounted at `/var/lib/machines/fedora-44`, `/etc/systemd/nspawn/fedora-44.nspawn`
-holds the settings nspawn boots it with, and a drop-in of
-`systemd-nspawn@fedora-44.service` makes the unit call nspawn around its life.
+then the blobs went to `/var/lib/nspawn`. A mount unit assembles the machine's
+root at `/var/lib/machines/fedora-44` from the layers when it starts,
+`/etc/systemd/nspawn/fedora-44.nspawn` holds the settings nspawn boots it with,
+and a drop-in of `systemd-nspawn@fedora-44.service` makes the unit call nspawn
+around its life.
 
 ```shell
 sudo nspawn start fedora-44
@@ -139,7 +141,7 @@ sudo nspawn exec fedora-44 -- systemctl is-system-running
 sudo nspawn shell fedora-44
 ```
 
-The hub images log in as `root` without a password on the console. What the
+The hub images log in as `root` with the password `root` on the console. What the
 machine printed is in `logs`, and `--inside` reads the journal of the machine
 itself:
 
@@ -176,9 +178,9 @@ the pull and the start in one step, like `docker run -d`. Without `-d`, `run`
 stays attached as `docker run` does: `sudo nspawn run -it --rm
 docker.io/library/alpine:3 sh` gives you a shell in a machine that goes away
 when you leave it. The port and any other flag given to `start` or `run` are
-remembered, so the next `sudo nspawn start web` publishes it again. `stop` sends the image's stop
-signal (`SIGQUIT` for nginx) to the program and kills the machine after ten
-seconds if it is still there; `-t` changes the grace period.
+remembered, so the next `sudo nspawn start web` publishes it again. `stop` sends
+the image's stop signal (`SIGQUIT` for nginx) to the program and kills the machine
+after ten seconds if it is still there; `-t` changes the grace period.
 
 Docker Hub limits anonymous pulls per address. `sudo nspawn login docker.io -u USER`
 keeps your credentials for that registry only; see
@@ -193,6 +195,10 @@ keeps your credentials for that registry only; see
   volumes.
 - [Networking](/docs/networking/): the bridge, networks of your own, published
   ports, veth and host networking, firewalls.
-- [Building images](/docs/building/): `build` and `push`.
+- [Compose](/docs/compose/): docker compose files, run by `nspawn compose`.
+- [Building images](/docs/building/): Dockerfiles and mkosi with `build`, and
+  `push`.
+- [The Docker API](/docs/docker-api/): docker's socket for reverse proxies and
+  dashboards, and `auto-update`.
 - [Configuration](/docs/configuration/): `/etc/nspawn/nspawn.toml`, environment
   variables and flags.

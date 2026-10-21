@@ -1,6 +1,6 @@
 ---
 title: Configuration
-weight: 7
+weight: 9
 description: >-
   The configuration file, environment variables and global flags, what wins
   when they disagree, and what is remembered per machine.
@@ -19,19 +19,21 @@ and run the bridge on `10.99.0.0/24`. Everything below is optional.
 
 ## The configuration file
 
-The file is `/etc/nspawn/nspawn.toml`, read when it exists; `--config FILE` or
-`NSPAWN_CONFIG` names another one, which then must exist. Every key is
-optional, and unknown keys are an error so that a typo does not silently fall
-back to a default.
+The service reads `/etc/nspawn/nspawn.toml` when it exists; `nspawn --config
+FILE daemon --install` puts it on another file, which then must exist. On any
+other command, `--config` (or `NSPAWN_CONFIG`) only changes the registry and CA
+certificate the command line passes to the service. Every key is optional, and
+unknown keys are an error so that a typo does not silently fall back to a
+default.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `registry` | string | `hub.nspawn.org` | Registry for references without a host part. |
-| `ca_cert` | path | none | Extra CA certificate (PEM) to trust when talking to the hub. |
+| `ca_cert` | absolute path | none | Extra CA certificate (PEM) trusted for the configured `registry` only. |
 | `backend` | `auto`, `overlay`, `flat` or `mstack` | `auto` | Backend for `pull` and `build` when they are not given `--backend`: `auto` is `overlay`, or `flat` without overlayfs; `mstack` is experimental. |
-| `machines_dir` | absolute path | `/var/lib/machines` | Where machines are assembled. |
-| `state_dir` | absolute path | `/var/lib/nspawn` | Blobs, layers, records, volumes and everything else nspawn keeps. |
-| `bridge` | string, 1 to 15 letters, digits, `-` or `_` | `nspawn0` | Name of the bridge the machines join. It must be free, or a bridge nspawn made. |
+| `machines_dir` | `/var/lib/machines`, `/etc/machines`, `/run/machines`, `/usr/local/lib/machines` or `/usr/lib/machines` | `/var/lib/machines` | Where machines are assembled: one of the directories systemd-nspawn finds machines in. |
+| `state_dir` | absolute path | `/var/lib/nspawn` | Blobs, layers, records, volumes and everything else nspawn keeps. It may neither be inside a directory machined lists images from nor hold one, where `machinectl clean` or `remove` would delete what nspawn keeps. |
+| `bridge` | string, 1 to 15 letters, digits, `-` or `_` | `nspawn0` | Name of the bridge the machines join. It must be free, empty, or a bridge nspawn made. |
 | `subnet` | IPv4 CIDR, prefix 8 to 30 | `10.99.0.0/24` | Subnet of the bridge; its first address is the bridge's own. |
 | `network_pool` | IPv4 CIDR | `10.99.0.0/16` | Where `network create` takes the /24 of a network given no `--subnet`: the first one that overlaps no other network and nothing the host routes. |
 | `dns` | list of IPv4 addresses | the host's upstream servers | DNS servers handed to bridged machines. They must be reachable from the bridge: no loopback, no IPv6. |
@@ -88,7 +90,7 @@ fails the pulls of that registry. What the command line was given with
 `--registry` chooses the registry, never the policy.
 
 The file is read by the service, so a change takes effect on its next start:
-`sudo systemctl restart nspawn.service` (or simply waiting for it to go idle)
+`sudo systemctl restart nspawn.service` (or waiting for it to go idle)
 picks it up. `--config` on the command line does not reach it: the command line
 is a client and only carries the registry and its CA certificate. To put the
 service on another file, name it when installing the service,
@@ -103,11 +105,10 @@ carries it, and so do the hooks the service writes for every machine.
 | `NSPAWN_CA_CERT` | `--ca-cert` |
 | `NSPAWN_CONFIG` | `--config` |
 
-They are convenient for scripts and for the end-to-end tests, which run against
-a private registry with a private CA:
+They are convenient for scripts:
 
 ```shell
-NSPAWN_REGISTRY=hub.nspawn.test:8443 NSPAWN_CA_CERT=/etc/zot/ca.crt nspawn hub ls
+sudo NSPAWN_REGISTRY=registry.example:5000 NSPAWN_CA_CERT=/etc/pki/tls/certs/example-ca.pem nspawn hub ls
 ```
 
 ## Credentials
@@ -121,24 +122,29 @@ file is the only one consulted. See
 Some settings belong to a machine rather than to the host, and are given when
 it is created or started; every one of them is remembered until it is changed:
 
-- `--backend` and `--mode` on `pull` and `build`; `--backend` on `create`.
-- `--name` on `pull` and `build`, to choose the local name.
+- `--backend` and `--mode` on `pull` and `build`; `--backend` on `run` and
+  `create`.
+- `--name` on `pull`, `run` and an mkosi `build` (a Dockerfile build is named by
+  `-t`), to choose the local name.
 - `--network` (`bridge`, `veth`, `host`, `none` or networks made with
-  `network create`, several of them), `--network-alias`, `-p`, `-e`, `-v`,
-  `--label`, `--entrypoint` and the arguments after `--` on `start`, `run` and
-  `create`. `-p none`, `-e none`, `-v none`, `--label none`,
+  `network create`, several of them), `--network-alias`, `--ip`, `-p`, `-e`,
+  `-v`, `--label`, `--entrypoint` and the arguments after `--` on `start`, `run`
+  and `create`. `-p none`, `-e none`, `-v none`, `--label none`,
   `--network-alias none` and `--image-command` forget what was remembered.
-- `--restart`, `-m`/`--memory`, `--memory-swap`, `--cpus` and `--pids-limit` on `start`, `run`
-  and `create`, applied at the next start, and on `update`, applied at once.
+- `--restart`, `-m`/`--memory`, `--memory-swap`, `--cpus` and `--pids-limit` on
+  `start`, `run` and `create`, applied at the next start, and on `update`,
+  applied at once.
   `--restart no` and a limit of `0` remove them.
 - The healthcheck (`--health-cmd` and the other `--health-*` flags,
   `--no-healthcheck`) on `start`, `run`, `create` and `update`, which changes
   it on a running machine at once.
 - `--hostname`, `-u`, `-w`, `--cap-add`, `--cap-drop`, `--privileged`,
-  `--read-only`, `--tmpfs`, `--shm-size`, `--device`, `--dns`, `--dns-search`,
-  `--add-host`, `--ulimit`, `--oom-score-adj`, `--stop-signal`,
-  `--stop-timeout`, `--timezone`, `--log-driver`, `--init`, `--sysctl` and `--secret` on `start`, `run` and
-  `create`, applied at the next start. A list takes `none` to forget it, a
-  value an empty string or `0`, and `--privileged=false` and
-  `--read-only=false` take those back.
+  `--read-only`, `--tmpfs`, `--shm-size`, `--device`, `--gpus`, `--dns`,
+  `--dns-search`, `--add-host`, `--ulimit`, `--oom-score-adj`, `--stop-signal`,
+  `--stop-timeout`, `--timezone`, `--log-driver`, `--init`, `--sysctl`,
+  `--secret`, `--interface` and `--depends-on` on `start`, `run` and `create`,
+  applied at the next start. A list takes `none` to forget it; `--hostname`,
+  `-u`, `-w`, `--stop-signal`, `--timezone` and `--log-driver` go back to the
+  default with an empty string, `--shm-size` with `0`, and `--privileged=false`
+  and `--read-only=false` take those back.
 - `--rm` on `run`: the machine is removed when that run ends.

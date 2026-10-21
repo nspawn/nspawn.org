@@ -3,8 +3,8 @@ title: Networking
 weight: 5
 description: >-
   The nspawn0 bridge, networks of your own, published ports, DNS and machine
-  names, how apps get their network, firewalls, and the veth and host
-  alternatives.
+  names, how apps get their network, firewalls, veth, host, none,
+  container:NAME, and physical interfaces.
 ---
 
 Every machine records which networks it uses. `start --network` changes them,
@@ -43,9 +43,13 @@ resort, with a warning, when none can be determined.
 An **app** machine has nothing inside to configure an interface, so nspawn
 builds its network namespace before the program starts: `ip netns`, a veth pair
 on the bridge, the address and the default route, handed to systemd-nspawn with
-`NamespacePath=`, plus a generated `/etc/resolv.conf`. The namespace lives at
-`/run/netns/nspawn-NAME` while the machine runs and goes away with it, and
-`--sysctl` sets `net.*` keys in it.
+`NamespacePath=` (`--network-namespace-path=` on its command line before systemd
+259), plus a generated `/etc/resolv.conf`. The namespace lives at
+`/run/netns/nspawn-NAME` while the machine runs and goes away with it. As in a
+docker container, it gets `net.ipv4.ping_group_range=0 2147483647` (ICMP echo
+sockets for every group, what a ping without raw sockets uses) and
+`net.ipv4.ip_unprivileged_port_start=0` (ports below 1024 for every user), and
+then the machine's `--sysctl` values, which win.
 
 A generated `/etc/hosts`, mounted into every bridged machine, resolves the names
 of the other machines on the bridge and `host.nspawn.internal` for the host;
@@ -55,6 +59,128 @@ machined also lets the host resolve machine names by itself. The bridge
 carries IPv4 only, so neither the machines nor the bridge get an IPv6
 link-local address, and a machine's name leads to its bridge address:
 `ping web` from the host answers from `10.99.0.x`.
+
+## Networks of your own
+
+Like docker's user-defined networks, `network create` makes a bridge of its own
+for a group of machines:
+
+```shell
+sudo nspawn network create front --label tier=edge
+sudo nspawn network create back --internal
+sudo nspawn run -d --name db --network back --network-alias postgres -e POSTGRES_PASSWORD=example docker.io/library/postgres:17
+sudo nspawn run -d --name web --network front --network back --network-alias front=www -p 127.0.0.1:8080:80 docker.io/library/nginx:latest
+```
+
+```text
+front is up: nsbr-front on 10.99.1.0/24
+back is up: nsbr-back on 10.99.2.0/24
+```
+
+The bridge is `nsbr-NAME` (a hash of the name when it is too long for an
+interface name), and its subnet the next /24 of `network_pool` (`10.99.0.0/16`
+unless set in [the configuration file](/docs/configuration/)) that overlaps no
+other network and nothing the host routes already; `--subnet` chooses one.
+Machines of one network reach each other by name, through the same generated
+`/etc/hosts`, and `host.nspawn.internal` is that network's gateway. Nothing
+of another network reaches them, the default one included: the forward chain
+of the `ip nspawn` table drops what crosses from one bridge to another, and that
+drop stands whatever firewalld or iptables accept. Ports a machine
+publishes are the exception, reachable from every network through the host,
+as from the LAN. `--internal` makes a network with no way out: its machines
+reach each other and the host, nothing beyond, and cannot publish ports.
+
+A machine may join several networks: `--network front --network back` puts it
+on both, with an address on each, the first one primary. The primary network
+is where its published ports lead and, unless it is internal, where its default
+route goes; an internal primary leaves the route to the first network that is
+not. A booted machine gets one interface per network (`host0`, `host1`, ...),
+each configured by the systemd-networkd inside through a `.network` file of
+its own; an app machine gets them in the namespace nspawn prepares. Its
+`/etc/hosts` lists, for every network it is on, the members of that network
+with their addresses there, so a proxy on `front` and `back` reaches both
+sides while `front` and `back` still do not reach each other. `veth`, `host`,
+`none` and `container:NAME` go alone.
+
+`--network-alias NAME` gives a machine another name on its primary network,
+`--network-alias NETWORK=NAME` on that network, as `docker run
+--network-alias` does: every member of the network resolves the alias as well,
+so `postgres` reaches `db` now and can be given to another machine later. An
+alias several machines share leads to the one whose name sorts first.
+`--network-alias none` forgets them.
+
+`--ip ADDRESS` fixes the machine's address on its primary network, `--ip
+NETWORK=ADDRESS` on another one, as docker's `--ip` does: on a network made
+with `network create` (docker refuses it on its default network too), inside
+its subnet, and nobody else's address there, or the start or create is refused
+with docker's words. The address is kept across restarts, and a machine made
+from this one with `create` gets an address of its own.
+
+```text
+$ sudo nspawn network create lab --subnet 10.99.5.0/24
+lab is up: nsbr-lab on 10.99.5.0/24
+$ sudo nspawn run -d --name fixed --network lab --ip 10.99.5.30 docker.io/library/busybox:1.37 -- sleep 600
+started fixed
+$ sudo nspawn exec fixed -- ip -4 -o addr show host0
+2: host0    inet 10.99.5.30/24 scope global host0\       valid_lft forever preferred_lft forever
+```
+
+`network connect [--alias NAME] [--ip ADDRESS] NETWORK MACHINE` and `network
+disconnect NETWORK MACHINE` change the networks a machine joins, like docker's.
+A running app or booted machine gets an interface on the network at once
+(`hostN`, with its address; its default route stays where it was, unless it had
+none and the network leads out) and loses it at once, and from its next start
+it joins the network as if `--network` had named it:
+
+```text
+$ sudo nspawn network connect --alias api --ip 10.99.5.20 lab worker
+worker: host1 on lab, 10.99.5.20
+$ sudo nspawn exec worker -- ip -4 -o addr show
+1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+2: host0    inet 10.99.0.3/24 scope global host0\       valid_lft forever preferred_lft forever
+3: host1    inet 10.99.5.20/24 scope global host1\       valid_lft forever preferred_lft forever
+$ sudo nspawn network disconnect lab worker
+worker: left lab
+```
+
+A machine on host networking, on veth, sharing another's or without a network,
+and an mstack machine, cannot; nor can a machine leave the only network it has
+(connect another one first, or start it with `--network none`). Leaving the
+primary network makes the next one primary, where its published ports go at
+once while it runs, from its next start otherwise.
+
+`network ls` lists the networks with the machines whose records name them,
+`network inspect NAME` shows one with its machines, their addresses, aliases
+and ports, and `network rm` and `network prune` remove the ones no machine
+uses, bridge, rules and firewall exceptions included; `network prune --filter
+label=KEY[=VALUE]` (or `until=`) removes only the unused ones it selects.
+`network create --label KEY=VALUE` tags a network for whoever reads `network
+inspect`, as docker's does:
+
+```shell
+sudo nspawn network ls
+```
+
+```text
+ NETWORK  INTERFACE   SUBNET        INTERNAL  MACHINES
+ bridge   nspawn0     10.99.0.0/24  no        bb
+ back     nsbr-back   10.99.2.0/24  yes       api db web
+ front    nsbr-front  10.99.1.0/24  no        web
+```
+
+The `/etc/hosts` of `web`, on `front` and `back` with `www` as its alias on
+`front`, lists the members of both networks with their addresses there:
+
+```text
+# Generated by nspawn; do not edit.
+127.0.0.1 localhost
+::1 localhost ip6-localhost ip6-loopback
+10.99.1.2 web www
+10.99.2.3 web
+10.99.1.1 host.nspawn.internal
+10.99.2.4 api
+10.99.2.2 db postgres
+```
 
 ```shell
 sudo nspawn network inspect front
@@ -89,87 +215,6 @@ sudo nspawn network inspect front
 ]
 ```
 
-## Networks of your own
-
-Like docker's user-defined networks, `network create` makes a bridge of its own
-for a group of machines:
-
-```shell
-sudo nspawn network create back --internal
-sudo nspawn network create front --label tier=edge
-sudo nspawn run -d --name db --network back --network-alias postgres docker.io/library/postgres:17
-sudo nspawn run -d --name web --network front --network back --network-alias front=www -p 127.0.0.1:8080:80 docker.io/library/nginx:latest
-```
-
-```text
-back is up: nsbr-back on 10.99.2.0/24
-front is up: nsbr-front on 10.99.1.0/24
-```
-
-The bridge is `nsbr-NAME` (a hash of the name when it is too long for an
-interface name), and its subnet the next /24 of `network_pool` (`10.99.0.0/16`
-unless set in [the configuration file](/docs/configuration/)) that overlaps no
-other network and nothing the host routes already; `--subnet` chooses one.
-Machines of one network reach each other by name, through the same generated
-`/etc/hosts`, and `host.nspawn.internal` is that network's gateway. Nothing
-of another network reaches them, the default one included: the forward chain
-of the `ip nspawn` table drops what crosses from one bridge to another, and a
-drop there holds whatever firewalld or iptables allow. Ports a machine
-publishes are the exception, reachable from every network through the host,
-as from the LAN. `--internal` makes a network with no way out: its machines
-reach each other and the host, nothing beyond, and cannot publish ports.
-
-A machine may join several networks: `--network front --network back` puts it
-on both, with an address on each, the first one primary. The primary network
-is where its published ports lead and, unless it is internal, where its default
-route goes; an internal primary leaves the route to the first network that is
-not. A booted machine gets one interface per network (`host0`, `host1`, ...),
-each configured by the systemd-networkd inside through a `.network` file of
-its own; an app machine gets them in the namespace nspawn prepares. Its
-`/etc/hosts` lists, for every network it is on, the members of that network
-with their addresses there, so a proxy on `front` and `back` reaches both
-sides while `front` and `back` still do not reach each other. `veth` and
-`host` go alone.
-
-`--network-alias NAME` gives a machine another name on its primary network,
-`--network-alias NETWORK=NAME` on that network, as `docker run
---network-alias` does: every member of the network resolves the alias as well,
-which is how `db` can stand for `postgres-17` today and for another machine
-tomorrow. An alias several machines share leads to the first of them by name.
-`--network-alias none` forgets them.
-
-`network ls` lists the networks with the machines whose records name them,
-`network inspect NAME` shows one with its machines, their addresses, aliases
-and ports, and `network rm` and `network prune` remove the ones no machine
-uses, bridge, rules and firewall exceptions included. `network create --label
-KEY=VALUE` tags a network for whoever reads `network inspect`, as docker's
-does:
-
-```shell
-sudo nspawn network ls
-```
-
-```text
- NETWORK  INTERFACE   SUBNET        INTERNAL  MACHINES
- bridge   nspawn0     10.99.0.0/24  no        bb
- back     nsbr-back   10.99.2.0/24  yes       api db web
- front    nsbr-front  10.99.1.0/24  no        web
-```
-
-The `/etc/hosts` of `web`, on `front` and `back` with `www` as its alias on
-`front`, lists the members of both networks with their addresses there:
-
-```text
-# Generated by nspawn; do not edit.
-127.0.0.1 localhost
-::1 localhost ip6-localhost ip6-loopback
-10.99.1.2 web www
-10.99.2.3 web
-10.99.1.1 host.nspawn.internal
-10.99.2.4 api
-10.99.2.2 db postgres
-```
-
 ## Published ports
 
 ```shell
@@ -190,8 +235,9 @@ refused before the machine starts, and a refused port is not remembered. On a
 machine with several networks the port leads to its primary address.
 
 The list is remembered for the machine: `nspawn start web` next time publishes
-the same ports, and `-p none` forgets them all. Ports need the bridge network;
-a machine on the host's network listens on the host's ports directly.
+the same ports, and `-p none` forgets them all. Ports need a bridge network
+(not an internal one); a machine on the host's network listens on the host's
+ports directly.
 
 ## Firewalls
 
@@ -220,9 +266,10 @@ to the machine and masquerades its traffic, all through the stock
 `80-container-ve.network`. App images refuse it, since nothing inside would
 configure the pair.
 
-Because that needs systemd-networkd, `start` activates it when the host has no
-`.network` files of its own in `/etc/systemd/network` or `/run/systemd/network`,
-and refuses with an explanation when it has, so that nspawn never takes over
+Because that needs systemd-networkd, `start` starts it, when it is not running,
+if the host has no `.network` files of its own in `/etc/systemd/network` or
+`/run/systemd/network`, and refuses with an explanation if it has, so that
+nspawn never takes over
 interfaces another network manager is handling. A masked systemd-networkd is an
 error. With firewalld, `ve-NAME` is bound to the `trusted` zone while the
 machine runs; otherwise the default zone would drop the machine's DHCP
@@ -252,14 +299,25 @@ serves is published with `-p` on `NAME`, since that is where the address is.
 running when the machine starts (`--depends-on NAME` has it started first, at
 boot as well), and cannot be removed while a machine names it, unless that
 machine goes in the same `rm`. When `NAME` stops or restarts, the machine keeps
-the namespace it joined,
-which then leads nowhere, and has to be restarted to join the new one, as with
-docker.
+the namespace it joined, which then leads nowhere, and has to be restarted to
+join the new one, as with docker.
 
 ```shell
-sudo nspawn run -d docker.io/qmcgaw/gluetun --name vpn --cap-add NET_ADMIN --device /dev/net/tun -p 8080:8080
+# the provider's settings (VPN_SERVICE_PROVIDER and the rest) go in vpn.env
+sudo nspawn run -d docker.io/qmcgaw/gluetun --name vpn --cap-add NET_ADMIN --device /dev/net/tun --env-file vpn.env -p 8080:80
 sudo nspawn run -d docker.io/library/nginx:1.27 --name web --network container:vpn
 ```
+
+For `web`, the service binds the name systemd-nspawn looks for
+(`/run/netns/nspawn-web`) to the network namespace of `vpn`'s leader process,
+the mount `ip netns attach` would make, so the settings are the ones of any app
+on a bridge, and drops the name when `web` stops while the namespace stays
+`vpn`'s. `-p`, `--ip`, `--network-alias`, `--dns`, `--dns-search`, `--add-host`
+and `--sysctl` are refused on such a machine, since they shape a network of its
+own, and so is a booted image, whose systemd would configure the shared
+interfaces again. `ps` and `inspect` show the network as `container:NAME`;
+`network inspect` does not list the machine among the network's members, as it
+has no address there.
 
 ## Physical interfaces
 
@@ -287,8 +345,8 @@ Where systemd-nspawn makes the machine's network namespace (a booted machine,
 on the bridge or with veth, and any machine with `--network none`) the
 interface goes into the machine's settings file as `Interface=` and
 systemd-nspawn moves it at start and back at exit. An app machine on a bridge
-network gets its namespace from nspawn itself (`NamespacePath=`, which allows
-no `Interface=` beside it), so the unit's hooks move the interface in with `ip`
+network gets its namespace from nspawn itself, by its path, which takes no
+`Interface=` beside it, so the unit's hooks move the interface in with `ip`
 before systemd-nspawn runs and give it back after; such an app runs without a
 user namespace, so `iw reg set` and monitor mode work inside as on the host.
 Either way the unit waits for the interface's device unit, so that a machine
@@ -297,8 +355,8 @@ started at boot waits for a USB adapter udev has not seen yet.
 A wifi adapter cannot leave its phy, so the phy moves whole, every interface it
 carries with it (nspawn says which), and a driver without namespace support
 (`ath6kl`, `wilc1000`) refuses the move naming the phy. An app on the bridge
-takes a wireless interface on any systemd, through `iw`, which has to be
-installed on the host; `Interface=` moves a phy since systemd 256, so on an
+takes a wireless interface on any systemd, through `iw`, which the host
+needs; `Interface=` moves a phy since systemd 256, so on an
 older host a wireless interface is refused for a booted machine or one with
 `--network none`, with a message that says so. The regulatory domain (`iw reg
 set`) and rfkill are host-wide: they are set on the host, or from an app on
@@ -320,14 +378,3 @@ every interface back from its release hook, while a machine that took them
 through `Interface=` may not get to give them back, and the kernel then
 returns a physical interface or a wifi phy a moment later and destroys a
 virtual one (a VLAN, a macvlan, a dummy) with the namespace.
-
-Behind the scenes the service binds the name systemd-nspawn looks for
-(`/run/netns/nspawn-web`) to the network namespace of `vpn`'s leader process,
-the mount `ip netns attach` would make, so the settings are the ones of any
-app on a bridge, and drops the name when `web` stops while the namespace
-stays `vpn`'s. `-p`,
-`--network-alias`, `--dns`, `--dns-search`, `--add-host` and `--sysctl` are
-refused on such a machine, since they shape a network of its own, and so is a
-booted image, whose systemd would configure the shared interfaces again. `ps`
-and `inspect` show the network as `container:NAME`; `network inspect` does not
-list the machine among the network's members, as it has no address there.

@@ -22,12 +22,24 @@ An image reference has the form `[registry/]repository[:tag|@digest]`:
 - Without a tag or digest, the tag is `latest`.
 - Repository names may only contain lowercase letters, digits, `.`, `_`, `-`
   and `/`. Official Docker Hub images live under `library/`, so nginx is
-  `docker.io/library/nginx`; `search` prints references in that form.
+  `docker.io/library/nginx`; `search` prints references in that form, and
+  Docker Hub's names read as docker reads them: `docker.io/alpine` is
+  `docker.io/library/alpine`, and `index.docker.io` is `docker.io`.
+- A digest is a sha256 one; sha384 and sha512 digests are refused, in a
+  Dockerfile's `FROM` too.
+
+`run` and `create` look for a local image of a name without a registry under
+the configured registry first, then as Docker Hub's (`app` as
+`docker.io/library/app`, the name of an image compose pulled from Docker Hub),
+and pull from the configured registry only when neither is there. Given by
+reference, the source is the most recently pulled image of that reference that
+never ran as a machine.
 
 The **local name** of an image, the one `start`, `stop`, `exec` and friends
 use, is derived from the reference (`fedora:44` becomes `fedora-44`) unless
-`--name` says otherwise. It has to be a valid machine name: letters, digits,
-`.`, `_` and `-`, at most 64 characters, not starting with a dot.
+`--name` says otherwise. It has to be a valid machine name, which is a host
+name: letters, digits, `.` and `-`, at most 64 characters, with no part between
+dots empty or starting or ending with `-`.
 
 ## The hub
 
@@ -54,7 +66,7 @@ carry the current security updates. They come in three kinds:
 
 | Kind | Images |
 | --- | --- |
-| Distributions | `debian`, `ubuntu`, `fedora`, `centos`, `almalinux`, `rockylinux`, `opensuse`, `archlinux`, `kali`, several releases each |
+| Distributions | `debian`, `ubuntu`, `fedora`, `centos`, `almalinux`, `rockylinux`, `opensuse`, `archlinux`, `kali`, most of them in several releases |
 | Services | `nginx`, `apache`, `caddy`, `haproxy`, `postgresql`, `mariadb`, `redis`, `valkey`, `memcached`, `rabbitmq`, `mosquitto`, `unbound`, `dnsmasq`, `bind9`, `samba`, `openssh`, `prometheus`, `node-exporter`, `grafana`, `wordpress`, `syncthing`, `forgejo` |
 | Machines to work in | `debian-devel`, `ubuntu-devel`, `fedora-devel`, `archlinux-devel`, `python`, `nodejs`, `golang`, `rust`, `openjdk` |
 
@@ -77,10 +89,10 @@ match) and Docker Hub (its search API). Every hit names its source and the
 reference `pull` takes:
 
 ```text
- SOURCE          NAME                        DESCRIPTION                               STARS  OFFICIAL
- hub.nspawn.org  debian                      tags: 12, 13, bookworm, trixie            -      -
- Docker Hub      docker.io/library/debian    Debian is a Linux distribution that's...  5100   yes
- Docker Hub      docker.io/someone/debian-x  Debian with extras                        3      -
+ SOURCE          NAME                        DESCRIPTION                                                   STARS  OFFICIAL
+ hub.nspawn.org  debian                      tags: 12, 13, bookworm, latest, sid, trixie, unstable         -      -
+ Docker Hub      docker.io/library/debian    Debian is a Linux distribution that's composed entirely o...  5100   yes
+ Docker Hub      docker.io/someone/debian-x  Debian with extras                                            3      -
 ```
 
 `--source` asks one side only and `-n` limits the results per source (25 by
@@ -98,11 +110,11 @@ echo "$TOKEN" | sudo nspawn login registry.example -u ci --password-stdin
 sudo nspawn logout docker.io
 ```
 
-`login` asks for the user name and the password on the terminal (without
-echo), or reads the password from standard input with `--password-stdin`, and
-checks them the way `docker login` does: `GET /v2/` on the registry, then basic
-authentication or a token request at the realm the registry announces. Bad
-credentials are refused with a clear message. A registry that never asks for
+`login` asks for the user name and, without echo, the password on the
+terminal, or reads the password from standard input with `--password-stdin`
+(which needs `-u`), and checks them the way `docker login` does: `GET /v2/` on
+the registry, then basic authentication or a token request at the realm the
+registry announces. Bad credentials are refused. A registry that never asks for
 credentials gets them stored anyway, with a note saying so.
 
 Credentials are kept in `/etc/nspawn/auth.json`, mode 0600, in the `auth.json`
@@ -113,7 +125,7 @@ operation chooses the credentials of the registry it talks to, so the hub's
 never travel to Docker Hub; the many names of Docker Hub (`docker.io`,
 `index.docker.io`, `registry-1.docker.io`) are one entry.
 
-Docker Hub limits anonymous pulls per address; logging in lifts that. `push`
+Docker Hub limits anonymous pulls per address; logging in raises the limit. `push`
 authenticates before it uploads anything and, when the registry wants
 credentials it does not have, says which `login` to run.
 
@@ -142,8 +154,8 @@ An image without a signature (a tag dated before the signing began, or one
 pushed by hand with `nspawn push`) is refused with `carries no signature`, and
 so is one whose signatures do not verify, with the reason of each. `--no-verify`
 on `pull`, `run` and `create` skips the check for that command, like docker's
-`--disable-content-trust`; `create` checks only an image it has to pull, never
-a local source. `inspect` shows who signed (`signed_by`: `key <hint>, keyless
+`--disable-content-trust`, and on `build` for the base images it pulls; `create`
+checks only an image it has to pull, never a local source. `inspect` shows who signed (`signed_by`: `key <hint>, keyless
 <identity>`) and when (`signed_at`), which a machine made with `create`
 inherits from its source.
 
@@ -166,15 +178,15 @@ the registry, never the policy.
 sudo nspawn pull REFERENCE [--name NAME] [--backend BACKEND] [--mode MODE] [--force] [--no-verify]
 ```
 
-It resolves the reference to the manifest for the host's
-platform (image indexes are followed), checks the image's signatures where its
-registry has a policy (the hub's is built in; see
-[Signed images](#signed-images)) before anything is downloaded, downloads every
-layer and the config blob that is not already in the store, three at a time as docker does, checking
-each one against its sha256 digest while it streams (a blob is written next to
-its final name and renamed only once verified, so an interrupted download never
-passes for a complete one, and a download cut short takes its part file with
-it), says of each blob when it is downloaded, and then:
+`pull` resolves the reference to the manifest for the host's platform (image
+indexes are followed) and checks the image's signatures where its registry has a
+policy (the hub's is built in; see [Signed images](#signed-images)) before
+anything is downloaded. It then downloads every layer and the config blob that
+is not already in the store, three at a time as docker does, each checked
+against its sha256 digest while it streams: a blob is written next to its final
+name and renamed only once verified, so an interrupted download never passes for
+a complete one, and a download cut short takes its part file with it. It says of
+each blob when it is downloaded, and then:
 
 1. assembles the root file system with the chosen [backend](#backends);
 2. reads the OCI config and decides whether the image is a
@@ -183,13 +195,14 @@ it), says of each blob when it is downloaded, and then:
    with, and the drop-in that makes `systemd-nspawn@NAME.service` call nspawn
    around its life;
 4. records the image (reference, manifest digest, layers, backend, mode,
-   network, who signed it) under `/var/lib/nspawn`, and keeps the manifest and blobs so that
-   the image can be pushed or cloned later.
+   network, who signed it) under `/var/lib/nspawn`, and keeps the manifest and
+   blobs so that the image can be pushed or cloned later.
 
 An image with the same name is not replaced unless you pass `--force`, and
-never while its machine is running, starting or being restarted by its policy. The old image only goes once the new one
-is downloaded, and the store is locked only for that last step, so a long
-download holds up neither other commands nor the unit hooks.
+never while its machine is running, starting or being restarted by its policy.
+The old image only goes once the new one is downloaded, and the store is locked
+only for that last step, so a long download holds up neither other commands nor
+the unit hooks.
 
 ## Backends
 
@@ -197,18 +210,18 @@ The backend decides how the layers become a directory systemd-nspawn can boot:
 
 | Backend | What it does | Needs |
 | --- | --- | --- |
-| `overlay` | Layers are extracted once under `/var/lib/nspawn` and shared. Each machine gets an overlayfs mount at `/var/lib/machines/NAME`, defined by a generated mount unit, with a private upper directory for its writes. | Any systemd with overlayfs. |
-| `mstack` (experimental) | A native `systemd.mstack` directory at `/var/lib/machines/NAME.mstack` that points at the shared layers; the machine boots with managed user namespaces (`PrivateUsers=managed`) and the layers are shifted into the foreign UID range. Only when asked for by name, with a note that it is experimental: systemd-nsresourced and systemd-mountfsd are still settling, and what the host's systemd makes of a managed user namespace is its business (the 262 release cannot boot one at all until the fix for [systemd/systemd#43899](https://github.com/systemd/systemd/issues/43899) lands in a later version). | systemd 261 or newer with the `systemd-nsresourced` and `systemd-mountfsd` sockets available (nspawn starts them). |
+| `overlay` | Layers are extracted once under `/var/lib/nspawn` and shared. Each machine gets an overlayfs mount at `/var/lib/machines/NAME`, defined by a generated mount unit, with a private upper directory for its writes. | Linux 6.5 or newer with overlayfs (`lowerdir+=`). |
+| `mstack` (experimental) | A native `systemd.mstack` directory at `/var/lib/machines/NAME.mstack` that points at the shared layers; the machine boots with managed user namespaces (`PrivateUsers=managed`) and the layers are shifted into the foreign UID range. Only when asked for by name, with a note that it is experimental: systemd-nsresourced and systemd-mountfsd are still settling, and the behaviour depends on the host's systemd version (the 262 release cannot boot a managed user namespace, [systemd/systemd#43899](https://github.com/systemd/systemd/issues/43899)). | systemd 261 or newer with the `systemd-nsresourced` and `systemd-mountfsd` sockets available (nspawn starts them). |
 | `flat` | The layers are extracted into a plain directory at `/var/lib/machines/NAME`. Nothing is shared, maximum compatibility. | Nothing. |
 | `auto` (default) | `overlay` when overlayfs is available, otherwise `flat`. Never `mstack`. | |
 
-Pick one per image with `--backend` on `pull`, `build` or `create`, or set a
+Pick one per image with `--backend` on `pull`, `run`, `build` or `create`, or set a
 default in the configuration file. `nspawn images ls` shows which backend each
 image uses. On `create`, `auto` means the backend of the image it comes from,
 not the chain above.
 
-App images are always assembled as `overlay` (or `flat`), even where `mstack`
-is available: a machine under managed user namespaces cannot join the network
+App images are always assembled as `overlay` (or `flat`), even when `mstack` is
+asked for: a machine under managed user namespaces cannot join the network
 namespace nspawn prepares for apps on the bridge. `pull` says so with a note
 when it makes that choice.
 
@@ -218,14 +231,19 @@ After assembling, nspawn looks at the root file system and at the OCI config:
 
 - An image that ships an **init program** (`usr/lib/systemd/systemd`,
   `lib/systemd/systemd`, `sbin/init` or `usr/sbin/init`, as the topmost layer
-  leaves it) and whose entrypoint is that init, or has no entrypoint at all, is
+  leaves it) and whose command (the entrypoint, or the cmd without one) is empty,
+  `init` or `systemd` by name, one of those paths, or systemd wherever it is, is
   a **boot** image. It is started with `Boot=yes`, as `machinectl start` would.
-- Everything else is an **app** image: the entrypoint and command from the
-  config run under nspawn's stub init (`Boot=no`, `ProcessTwo=yes`), with the
-  config's environment, working directory, user and stop signal.
+- Everything else is an **app** image, an image's own `/init` included: the
+  entrypoint and command from the config run under systemd-nspawn's stub init
+  (`Boot=no`, `ProcessTwo=yes`), with the config's environment, working
+  directory, user and stop signal. An app image that carries s6-overlay (v3
+  under `/package/admin/s6-overlay`, v2 with `/etc/s6/init/init-stage1`) runs
+  its program as PID 1 of the machine instead, as s6 insists on.
 
 `--mode boot` or `--mode app` overrides the detection. The mode is recorded with
-the image; [Machines](/docs/machines/) explains how it changes `start`, `exec`,
+the image, and an image keeps the mode it was installed with until it is
+pulled again; [Machines](/docs/machines/) explains how it changes `start`, `exec`,
 `shell` and `stop`.
 
 ## More machines from one image
@@ -251,8 +269,8 @@ its own command line gives. Every option of `start` is accepted and means the
 same; `--entrypoint`, `-e` and the arguments after `--` apply to app images
 only, `-v` works for both kinds. Everything on the command line is checked
 before anything is made, so a refused `create` leaves nothing behind.
-`pull --name` ends up the same way, but resolves the manifest through the
-registry first.
+`pull --name` also makes another machine of an image, but resolves the manifest
+through the registry first.
 
 ## Listing and removing
 
@@ -291,13 +309,35 @@ volume ls` shows them and `volume rm` or `volume prune` removes the unused ones.
 
 `images ls --json` prints the list as the service returns it.
 
+`system df` shows what images, machines, volumes and the build cache take on
+disk, as docker's does (`-v` for each of them, `--json`):
+
+```text
+$ sudo nspawn system df
+ TYPE           TOTAL  ACTIVE  SIZE     RECLAIMABLE
+ Images         4      2       368.8MB  295.4MB (80%)
+ Containers     2      2       1.093kB  0B (0%)
+ Local Volumes  0      0       0B       0B
+ Build Cache    182    4       1.141GB  1.11GB (97%)
+```
+
+Here an image is a record that was pulled or built and never started; every
+other record is a machine. `images prune -a` removes the images no machine was
+made from; without `-a` it removes the dangling ones, which nspawn's store never
+has, since a tag pulled or built again replaces its record. `system prune`
+removes stopped machines made from an image (by `create` or `run`), networks no
+machine uses and the build cache no image uses; with `-a` also the images no
+machine was made from and the whole build cache. `--filter label=...` and
+`until=...` narrow what goes, and `-f` skips the question. `builder prune` takes
+the [build cache](/docs/building/#the-build-cache) alone.
+
 ## Where things live
 
 | Path | Contents |
 | --- | --- |
 | `/var/lib/machines/NAME` | The root of a machine with the `overlay` or `flat` backend (a mount point in the first case). |
 | `/var/lib/machines/NAME.mstack` | The `systemd.mstack` directory of a machine with the `mstack` backend. |
-| `/var/lib/nspawn/` | nspawn's own state: blobs as downloaded, extracted layers, image records, stored manifests, the private upper directories of overlay machines, the generated network files and units of each machine, mkosi build output and cache, and the store lock. Root's alone (0700), but for the generated files an mstack machine binds from inside its user namespace; the directory itself can only be passed through (0711). |
+| `/var/lib/nspawn/` | nspawn's own state: blobs as downloaded, extracted layers, image records, stored manifests, the private upper directories of overlay machines, the generated network files and units of each machine, mkosi build output and cache, and the store lock. The directory is 0711 and every directory under it 0700, except the per-machine files an mstack machine binds from inside its user namespace (0711). |
 | `/var/lib/nspawn/volumes/NAME` | A named volume (`-v NAME:/inside`). |
 | `/etc/systemd/nspawn/NAME.nspawn` | The settings nspawn generates for a machine; regenerated at every `start`, mode 0600 since it carries the `-e` variables. |
 | `/etc/systemd/system/systemd-nspawn@NAME.service.d/` | The drop-in with the unit hooks (and the machine's `Restart=`, `MemoryMax=`, `MemorySwapMax=`, `CPUQuota=` and `TasksMax=` when it has them) and, for an overlay machine, the one that requires its mount unit. The mount unit itself is next to them in `/etc/systemd/system/`. |

@@ -9,7 +9,7 @@ params:
 
 <!-- prettier-ignore -->
 Docker-like management of systemd-nspawn machines.
-Images from an OCI hub, shared layers, and systemd all the way down.
+Images from any OCI registry, shared layers, and machines that are plain systemd units.
 {.display-6}
 
 <!-- prettier-ignore -->
@@ -52,10 +52,11 @@ machines. Remove an image and the layers nobody uses go with it.
 {{% blocks/feature title="Machines and apps" icon="fa-server" url="docs/machines/" url_text="Running machines" %}}
 
 Images that ship systemd boot like `machinectl start` does. Anything else, for
-example a docker image, runs its entrypoint as an app under a stub init, with
-`-p`, `-e`, `-v`, `--label`, `--restart`, `-m` and `--entrypoint` as in docker.
-`ps`, `inspect`, `exec`, `shell`, `cp`, `logs`, `stop` and `rm` work the same on
-both.
+example a docker image, runs its entrypoint as an app under a stub init, or as
+PID 1 when it carries s6-overlay, as linuxserver.io's images do, with `-p`, `-e`,
+`-v`, `--label`, `--restart`, `-m` and `--entrypoint` as in docker. `ps`,
+`inspect`, `exec`, `shell`, `cp`, `logs`, `stop` and `rm` work on both, and
+docker compose files run with `nspawn compose`.
 
 {{% /blocks/feature %}}
 
@@ -81,10 +82,10 @@ sudo nspawn hub ls                 # repositories and tags on the hub
 sudo nspawn search fedora          # images on the hub and on Docker Hub
 sudo nspawn login docker.io -u me  # credentials for a registry (the hub by default)
 sudo nspawn pull fedora:44         # download and assemble an image
-sudo nspawn images ls              # local images (all of them, not only ours)
+sudo nspawn images ls              # local images, nspawn's and any other machined lists
 sudo nspawn start fedora-44        # boot it as a machine
 sudo nspawn create fedora-44 db    # another machine from the same image
-sudo nspawn start web -p 8080:80 -e KEY=v -v /srv/data:/data -v pgdata:/var/lib/pg
+sudo nspawn run -d --name web -p 8080:80 -e KEY=v -v /srv/data:/data docker.io/library/nginx:1.27
 sudo nspawn start db --restart unless-stopped -m 512m   # back when it dies, and at boot
 sudo nspawn ps                     # running machines: image, mode, command, uptime
 sudo nspawn inspect web            # everything about a machine, as JSON
@@ -97,8 +98,9 @@ sudo nspawn rm -f db               # remove a machine, stopping it first
 sudo nspawn images rm fedora-44    # also frees layers and blobs nobody uses
 sudo nspawn volume ls              # named volumes and who uses them
 
-sudo nspawn build -t team/app:1 ./app   # mkosi --format=oci, imported as an image
+sudo nspawn build -t team/app:1 ./app   # its Dockerfile (or its mkosi.conf), a local image
 sudo nspawn push team/app:1             # upload it; layers already there are skipped
+sudo nspawn compose up -d               # the compose.yaml of this directory
 ```
 
 Every command is a call to nspawn's service on the system bus, which asks
@@ -111,11 +113,11 @@ password, and a rule of your own can hand the actions to a group.
 
 {{% blocks/section color="secondary" type="row" %}}
 
-{{% blocks/feature title="Build with mkosi, push anywhere" icon="fa-hammer" url="docs/building/" url_text="Building images" %}}
+{{% blocks/feature title="Build Dockerfiles, push anywhere" icon="fa-hammer" url="docs/building/" url_text="Building images" %}}
 
-`nspawn build` runs mkosi with `--format=oci` on a directory with a
-`mkosi.conf`, imports the result as a local image and `push` uploads it to the
-hub or to any registry you point it at.
+`nspawn build` builds a Dockerfile with nspawn's own builder, as `docker build`
+does, or runs mkosi on a directory with a `mkosi.conf`, and imports the result as
+a local image; `push` uploads it to the hub or any other registry.
 
 {{% /blocks/feature %}}
 
@@ -129,8 +131,9 @@ distribution's own package manager. Read them, rebuild them, send fixes.
 {{% blocks/feature title="Small and self-contained" icon="fa-feather" url="docs/overview/" url_text="How it fits together" %}}
 
 One binary, written in Rust. Its state lives under `/var/lib/nspawn`, its
-machines under `/var/lib/machines`, and everything it generates is a plain
-systemd unit or settings file you can read.
+machines under `/var/lib/machines`; the units, drop-ins and `.nspawn` files it
+generates are plain files you can read, and its network rules live in one
+nftables table, `ip nspawn`.
 
 {{% /blocks/feature %}}
 

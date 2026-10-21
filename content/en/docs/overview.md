@@ -32,42 +32,55 @@ machines with a docker-like workflow:
   the machine starts, once it runs and after it ends, so `machinectl start`, a
   unit enabled at boot or a crash get the same network setup and cleanup as
   `nspawn start` and `nspawn stop`.
-- The docker flags you know apply to any kind of machine: `-p` publishes
-  ports, `-e` sets variables, `-v` mounts host directories or named volumes,
-  `--entrypoint` and the arguments after `--` change what an app runs, `-l`
-  labels it, `--restart` gives it a restart policy, `-m`, `--cpus` and
-  `--pids-limit` bound its resources, `--health-cmd` probes it, `--secret`
-  hands it a secret, `--depends-on` starts other machines before it, at boot
-  as well, and `--hostname`, `-u`, `--cap-drop`, `--read-only`,
-  `--tmpfs`, `--device`, `--dns`, `--add-host`, `--ulimit` and the rest of
-  `docker run`'s flags mean what they mean there.
-- `build` runs mkosi on a directory with a `mkosi.conf` and imports the result
+- The docker flags you know are there. `-p` publishes ports, `-v` mounts host
+  directories or named volumes, `-l` labels a machine, `--restart` gives it a
+  restart policy, and `-m`, `--cpus` and `--pids-limit` bound its resources.
+  `--health-cmd` probes it, `--secret` hands it a secret, and `--depends-on`
+  starts other machines before it, at boot as well. For an app, `-e`,
+  `--entrypoint`, `-u`, `-w` and the arguments after `--` change what it runs.
+  `--hostname`, `--cap-drop`, `--read-only`, `--tmpfs`, `--device`, `--gpus`,
+  `--dns`, `--add-host`, `--ulimit` and the rest of `docker run`'s flags mean what
+  they mean there. For scripts written for docker, `ps --filter`, `ps --format`,
+  `inspect -f`, `wait`, `port`, `system df` and `system prune` work as docker's do.
+- `nspawn compose` runs docker compose files with docker compose's commands:
+  each service becomes a machine per replica, and its networks, volumes and
+  secrets become nspawn's. See [Compose](/docs/compose/).
+- `build` builds a Dockerfile with a builder of nspawn's own, as `docker build`
+  does, or runs mkosi on a directory with a `mkosi.conf`, and imports the result
   as a local image; `push` uploads an image to a registry, skipping the layers
-  that are already there.
+  that are already there. See [Building](/docs/building/).
+- A machine that mounts docker's socket gets a Docker API there that changes
+  nothing but sends `kill`, so
+  reverse proxies that route by labels and dashboards find the machines as
+  containers, and `auto-update` moves labelled machines to the image their tag
+  names now. See [The Docker API](/docs/docker-api/).
 - `generate` prints the commands that make the same machines on another host,
   every flag they keep included.
 
 The work is done by a service on the system bus, `org.nspawn`, and the command
 line is one of its clients, the way `machinectl` and `systemctl` are clients of
 machined and systemd. The service is started by the bus when a command arrives
-and exits when it has been idle for a while; nothing runs in the background
-otherwise. See [The service](#the-service).
+and exits when it has been idle for a minute. Between commands only these run:
+the healthcheck of a machine that has one (`nspawn-health-NAME.service`), the
+Docker API of a machine that asked for one, which systemd starts when a client
+connects, and the daily `auto-update` timer once you enable it. See
+[The service](#the-service).
 
 It is one binary written in Rust. Its own state lives under `/var/lib/nspawn`,
-the assembled machines under `/var/lib/machines`, and everything it generates on
-the host is a plain systemd unit, drop-in or `.nspawn` settings file that you can
-read.
+the assembled machines under `/var/lib/machines`; the units, drop-ins and
+`.nspawn` files it generates are plain files you can read, and its network rules
+live in one nftables table, `ip nspawn`.
 
 ## The service
 
 Every command is a method call on `org.nspawn.Manager`: images, machines, the
-network and credentials are methods, the long operations (pull, push, build,
-create, rm, images rm, cp, volume rm and prune, network rm and prune) come back
-as job objects that report their output and result, and `exec`, `logs`,
-`events` and an attached `run` hand their streams or terminal over the bus,
-with a process object that says how they ended. Scripts that would rather not speak
-D-Bus get the same dictionaries as JSON from `inspect` and `--json` on the
-listings.
+network and credentials are methods. The long operations (pull, push, build,
+create, rm, images rm and prune, cp, volume rm and prune, secret rm, network rm,
+connect, disconnect and prune, builder prune, auto-update) come back as job
+objects that report their output and result, and `exec`, `logs`, `events` and an
+attached `run` hand their streams or terminal over the bus, with a process object
+that says how they ended. Scripts that would rather not speak D-Bus get the same
+dictionaries as JSON from `inspect` and `--json` on the listings.
 
 Who may call what is polkit's answer, the way it is for machined and systemd.
 The bus lets everyone in and the service asks polkit about the caller, under
@@ -75,11 +88,11 @@ two actions:
 
 | Action | Methods |
 | --- | --- |
-| `org.nspawn.inspect` | The ones that only read: `images ls`, `ps` and `machines ls`, `inspect`, `generate`, `top`, `stats`, `events`, `network ls` and `network inspect`, `volume ls`, `secret ls` and `secret inspect`. |
+| `org.nspawn.inspect` | The ones that only read: `images ls`, `ps` and `machines ls`, `inspect`, `generate`, `top`, `stats`, `events`, `wait`, `port`, `system df`, `builder du`, `network ls` and `network inspect`, `volume ls`, `secret ls` and `secret inspect`. |
 | `org.nspawn.manage` | Everything else: pulling, building, starting, stopping, restarting, pausing, removing, `exec`, `shell`, `cp`, `logs`, volumes, secrets, the registry commands and the credentials. |
 
-Both are for administrators by default, so `sudo nspawn ...` works as it always
-did, and a desktop session (or a terminal where you started `pkttyagent`) is
+Both are for administrators by default, so `sudo nspawn ...` works, and a
+desktop session (or a terminal where you started `pkttyagent`) is
 asked for a password instead. Root is never asked, which is also how the
 service keeps working where polkit is not installed: there, nobody but root can
 call it. One interface asks nothing: `org.nspawn.Names` hands out the names of
@@ -100,12 +113,14 @@ polkit.addRule(function (action, subject) {
 
 Everyone in that group can then run commands as root inside a machine and mount
 any path of the host into one, which is to say they are administrators of the
-host. Granting `org.nspawn.inspect` alone is the mild version: looking, without
-touching.
+host. Granting `org.nspawn.inspect` alone lets the group look without changing
+anything, though what it sees includes every machine's `-e` variables and the
+build cache's steps, `--build-arg` values among them.
 
 A package installs the service; for a binary you built yourself,
 `sudo nspawn daemon --install` writes the bus policy, the polkit actions, the
-activation file and the unit, and tells systemd and the bus about them. Its journal is the usual one:
+activation file and the unit, and tells systemd and the bus about them. Its
+journal is the usual one:
 
 ```shell
 journalctl -u nspawn.service
@@ -117,8 +132,8 @@ nspawn tells two kinds of images apart when it installs them:
 
 | Kind | What the image contains | How it runs |
 | --- | --- | --- |
-| **boot** | An init system (systemd) and no other entrypoint, like the hub images | Booted with `--boot`, as `machinectl start` does. `shell` opens machined's login session inside; `exec` enters the machine's namespaces and needs nothing from it. |
-| **app** | Anything else, for example an image from Docker Hub | Its entrypoint runs under nspawn's stub init, with the environment, working directory, user and stop signal from the OCI config. Its network namespace is prepared by nspawn before the program starts, so the network is there from the first instruction. `exec` and `shell` enter the namespaces. |
+| **boot** | An init system (systemd) and no other command, like the hub images | Booted with `--boot`, as `machinectl start` does. `shell` opens machined's login session inside; `exec` enters the machine's namespaces and needs nothing from it. |
+| **app** | Anything else, for example an image from Docker Hub | Its entrypoint runs under systemd-nspawn's stub init, with the environment, working directory, user and stop signal from the OCI config, or as PID 1 of the machine when the image carries s6-overlay (as linuxserver.io's images do) or `--init=false` asks for it. Its network namespace is prepared by nspawn before the program starts, so the network is there when it starts. `exec` and `shell` enter the namespaces. |
 
 The kind is detected at `pull` or `build` time and can be forced with
 `--mode boot` or `--mode app`. Both kinds join the bridge network, are listed
@@ -151,10 +166,12 @@ configured by systemd-networkd. See [Networking](/docs/networking/).
   systemd supervises them, machined tracks them. nspawn only drives them, and
   its own service holds no machine open: it is started on demand and goes away
   again.
-- It is not an orchestrator. There is no compose file, no service discovery
-  beyond the names on the bridge, no scheduling.
-- It does not build images by itself: `build` needs
-  [mkosi](https://github.com/systemd/mkosi) installed on the host.
+- It is not an orchestrator. Compose files run on one host, as with docker
+  compose; there is no swarm, no service discovery beyond the names on the
+  networks, no scheduling across hosts.
+- It does not bring mkosi: mkosi configurations need
+  [mkosi](https://github.com/systemd/mkosi) installed on the host. Dockerfiles
+  build with nspawn's own builder.
 - It does not sign images: the hub's are signed by the workflow that builds
   them, and `pull` verifies one of those signatures before it downloads
   anything (see [Signed images](/docs/images/#signed-images)). Every blob is

@@ -66,8 +66,8 @@ variables and the volumes of the last run:
   fixes its address on one made with `network create`; see
   [Networking](/docs/networking/).
 - `-p [IP:]HOST:CONTAINER[/udp]` publishes a port on the host, on every
-  address or on one, like docker. It needs a bridge network; `-p none` forgets
-  all published ports.
+  IPv4 and IPv6 address or on one, like docker. It needs a bridge network;
+  `-p none` forgets all published ports.
 - `--entrypoint`, `-e`, `--env-file` and the arguments after `--` change what
   an **app** image runs; see [Command, entrypoint and environment](#command-entrypoint-and-environment).
   Boot images refuse them.
@@ -909,6 +909,7 @@ $ sudo nspawn wait job
 3
 $ sudo nspawn port web
 80/tcp -> 0.0.0.0:8080
+80/tcp -> [::]:8080
 ```
 
 `wait NAME...` waits for machines to stop and prints each one's exit code, and

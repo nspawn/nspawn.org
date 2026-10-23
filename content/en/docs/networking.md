@@ -58,7 +58,8 @@ host's address on the machine's network. On hosts with systemd 258 or newer,
 machined also lets the host resolve machine names by itself. The bridge
 carries IPv4 only, so neither the machines nor the bridge get an IPv6
 link-local address, and a machine's name leads to its bridge address:
-`ping web` from the host answers from `10.99.0.x`.
+`ping web` from the host answers from `10.99.0.x`. Published ports answer
+over IPv6 all the same; see [IPv6](#ipv6).
 
 ## Networks of your own
 
@@ -221,11 +222,11 @@ sudo nspawn network inspect front
 sudo nspawn start web -p 8080:80 -p 5353:53/udp -p 127.0.0.1:9090:9090 -p 8000-8010:8000-8010
 ```
 
-Each `-p [IP:]HOST:CONTAINER[/udp]` becomes a DNAT entry in the `ip nspawn`
-table. Without an address the port is reachable from other hosts, from the
-host's own addresses and from `127.0.0.1` (through `route_localnet`, as docker
-does without its userland proxy); with one, `127.0.0.1:9090:9090` say, on that
-address of the host alone, for a reverse proxy in front. A range,
+On IPv4 each `-p [IP:]HOST:CONTAINER[/udp]` becomes a DNAT entry in the `ip
+nspawn` table. Without an address the port is reachable from other hosts, from
+the host's own addresses and from `127.0.0.1` (through `route_localnet`, as
+docker does without its userland proxy); with one, `127.0.0.1:9090:9090` say, on
+that address of the host alone, for a reverse proxy in front. A range,
 `8000-8010:8000-8010`, is one mapping per port, which `inspect` shows one by
 one. The entries are installed once the machine is registered and removed when
 it ends, by the unit hooks, so they also go away after a crash or when the
@@ -239,12 +240,46 @@ the same ports, and `-p none` forgets them all. Ports need a bridge network
 (not an internal one); a machine on the host's network listens on the host's
 ports directly.
 
+### IPv6
+
+The machines have IPv4 addresses alone, and nftables cannot translate IPv6 into
+IPv4, so a port answers on the host's IPv6 addresses through a proxy, as
+docker's userland proxy serves it. `nspawn-proxy-NAME.service`, a transient
+unit the machine's hooks start once it runs and stop with it, listens there and
+relays TCP connections and UDP datagrams to the machine's address; UDP replies
+leave from the address the client wrote to, so HTTP/3 works too. The IP of `-p`
+says where a port is published, as with docker:
+
+| `-p` | Where |
+| --- | --- |
+| `8080:80` | every IPv4 address and, on a host with IPv6, every IPv6 address |
+| `0.0.0.0:8080:80` | every IPv4 address |
+| `127.0.0.1:8080:80` | that IPv4 address |
+| `[::]:8080:80` | every IPv6 address |
+| `[2001:db8::1]:8080:80`, `[::1]:8080:80` | that IPv6 address |
+
+```text
+$ sudo nspawn port web
+80/tcp -> 0.0.0.0:8080
+80/tcp -> [::]:8080
+```
+
+A link-local address (`fe80::`) cannot be named, as it needs an interface;
+`[::]` takes it with the others. The port checks cover the IPv6 side as well,
+and when the proxy cannot listen, `start` says so and the IPv4 side works all
+the same (`journalctl -u nspawn-proxy-web` says why). A machine sees an IPv6
+client as the bridge's gateway address, not the client's own, as with docker's
+proxy. The client comes in through the host's input path, not its forwarding,
+so a host firewall has to let the port in, as for any service of the host;
+nspawn changes no rule for it.
+
 ## Firewalls
 
 - **firewalld**: the bridge is placed in the `trusted` zone at runtime, which
-  also lets published ports through. The binding does not survive
+  also lets published ports through on IPv4. The binding does not survive
   `firewall-cmd --reload`; the next `start` or `nspawn network up` puts it
-  back.
+  back. The IPv6 side of a port needs the port open in the zone of the host's
+  interface, as a service of the host does.
 - **docker** (in its default iptables mode) and **ufw** set the `FORWARD`
   policy to `DROP`, which would silence every machine on the bridge. `start`
   then adds two rules to the `DOCKER-USER` chain, which docker reserves for

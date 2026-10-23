@@ -62,7 +62,7 @@ $ sudo nspawn compose up -d
 $ sudo nspawn compose ps
 NAME         IMAGE                COMMAND                  SERVICE   CREATED         STATUS                   PORTS
 shop-db-1    postgres:18-alpine   "docker-entrypoint.s…"   db        4 seconds ago   Up 3 seconds (healthy)
-shop-web-1   nginx:alpine         "/docker-entrypoint.…"   web       3 seconds ago   Up Less than a second    0.0.0.0:8080->80/tcp
+shop-web-1   nginx:alpine         "/docker-entrypoint.…"   web       3 seconds ago   Up Less than a second    0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
 
 $ sudo nspawn compose exec db psql -U postgres -c 'select 1'
  ?column?

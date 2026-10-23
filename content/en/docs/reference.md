@@ -381,7 +381,7 @@ Boots an image as a machine. Every option is remembered for the next start.
 | --- | --- |
 | `--network NETWORK` | Network of the machine: `bridge`, the default network (the default); the name of a network made with [network create](#network-create); `veth`, a veth pair configured by systemd-networkd on the host (booted images only); `host`, the host's own network; `none`, no interface but `lo`; or `container:NAME`, the network namespace of that running machine, like `docker run --network container:NAME` (app images only; see [container:NAME](/docs/networking/#containername)). Repeatable for several bridge networks, the first one primary: its address is where published ports lead and its gateway the default route, unless it is internal, in which case the first network that is not has the route. `veth`, `host`, `none` and `container:NAME` go alone. |
 | `--network-alias [NETWORK=]NAME` | Another name for the machine on its primary network, or on `NETWORK`, like `docker --network-alias`: every member of that network resolves it. Repeatable; `none` forgets them. |
-| `-p`, `--publish [IP:]HOST:CONTAINER[/udp]` | Publish a port on the host, like `docker -p`: on every address of the host, or on `IP` alone (`127.0.0.1:8080:80`). `8000-8010:8000-8010` publishes a range, one mapping per port. Repeatable; `none` forgets them all. |
+| `-p`, `--publish [IP:]HOST:CONTAINER[/udp]` | Publish a port on the host, like `docker -p`: on every IPv4 and IPv6 address of the host, or on `IP` alone (`127.0.0.1:8080:80`, `[::1]:8080:80`); `0.0.0.0` is every IPv4 address, `[::]` every IPv6 one. `8000-8010:8000-8010` publishes a range, one mapping per port. Repeatable; `none` forgets them all. |
 | `--ip [NETWORK=]IP` | A fixed IPv4 address on the primary network, or on `NETWORK`: one made with [network create](#network-create), inside its subnet and nobody else's there, like `docker --ip`. Repeatable, once per network. |
 | `--entrypoint PROGRAM` | Replace the image's entrypoint and drop its cmd, so only the arguments given follow it; an empty string runs the arguments alone. An app left with nothing to run is refused with `no command specified`. App images only. |
 | `-e`, `--env VAR[=VALUE]` | Environment for the program, `VAR=value` or `VAR` copied from the calling shell. Repeatable; `none` forgets them. App images only. |
@@ -623,8 +623,9 @@ nspawn port NAME [PRIVATE_PORT[/PROTO]]
 ```
 
 Prints the ports a running machine publishes, like `docker port`
-(`80/tcp -> 0.0.0.0:8080`), or only those of one port of the machine; one it
-does not publish is an error, as docker words it.
+(`80/tcp -> 0.0.0.0:8080`, and `80/tcp -> [::]:8080` on a host with IPv6), or
+only those of one port of the machine; one it does not publish is an error, as
+docker words it.
 
 ## cp
 

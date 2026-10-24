@@ -10,14 +10,14 @@ description: >-
 
 nspawn is a command line tool that manages
 [systemd-nspawn](https://www.freedesktop.org/software/systemd/man/latest/systemd-nspawn.html)
-machines with a docker-like workflow:
+machines:
 
 - Images are [OCI images](https://github.com/opencontainers/image-spec) that
   come from a registry. The default registry is the hub at `hub.nspawn.org`,
   where the nspawn.org team publishes images of common distributions built with
   [mkosi](https://github.com/systemd/mkosi). Docker Hub and any other registry
   work as well: `search` looks on the hub and on Docker Hub at once, and
-  `login` keeps credentials per registry, the way `docker login` does.
+  `login` keeps credentials per registry.
 - An image of the hub is verified against its signature before anything comes
   down; layers are downloaded once, verified against their digests and shared between
   the machines that use them. A machine's root file system is assembled from
@@ -32,25 +32,28 @@ machines with a docker-like workflow:
   the machine starts, once it runs and after it ends, so `machinectl start`, a
   unit enabled at boot or a crash get the same network setup and cleanup as
   `nspawn start` and `nspawn stop`.
-- The docker flags you know are there. `-p` publishes ports, `-v` mounts host
-  directories or named volumes, `-l` labels a machine, `--restart` gives it a
-  restart policy, and `-m`, `--cpus` and `--pids-limit` bound its resources.
+- A machine's settings are flags, remembered for it. `-p` publishes ports, `-v`
+  mounts host directories or named volumes, `-l` labels a machine, `--restart`
+  gives it a restart policy, and `-m`, `--cpus` and `--pids-limit` bound its
+  resources.
   `--health-cmd` probes it, `--secret` hands it a secret, and `--depends-on`
   starts other machines before it, at boot as well. For an app, `-e`,
   `--entrypoint`, `-u`, `-w` and the arguments after `--` change what it runs.
   `--hostname`, `--cap-drop`, `--read-only`, `--tmpfs`, `--device`, `--gpus`,
-  `--dns`, `--add-host`, `--ulimit` and the rest of `docker run`'s flags mean what
-  they mean there. For scripts written for docker, `ps --filter`, `ps --format`,
-  `inspect -f`, `wait`, `port`, `system df` and `system prune` work as docker's do.
-- `nspawn compose` runs docker compose files with docker compose's commands:
-  each service becomes a machine per replica, and its networks, volumes and
-  secrets become nspawn's. See [Compose](/docs/compose/).
-- `build` builds a Dockerfile with a builder of nspawn's own, as `docker build`
-  does, or runs mkosi on a directory with a `mkosi.conf`, and imports the result
+  `--dns`, `--add-host`, `--ulimit` and the rest shape the machine further. For
+  scripts, `ps --filter` and `ps --format` select and print machines,
+  `inspect -f` prints a template over a record, `wait` and `port` give a
+  machine's exit code and published ports, and `system df` and `system prune`
+  count and free what nspawn keeps on disk.
+- `nspawn compose` runs docker compose files: each service becomes a machine per
+  replica, and its networks, volumes and secrets become nspawn's. See
+  [Compose](/docs/compose/).
+- `build` builds a Dockerfile with a builder of nspawn's own, or runs mkosi on a
+  directory with a `mkosi.conf`, and imports the result
   as a local image; `push` uploads an image to a registry, skipping the layers
   that are already there. See [Building](/docs/building/).
-- A machine that mounts docker's socket gets a Docker API there that changes
-  nothing but sends `kill`, so
+- A machine that mounts `/var/run/docker.sock` gets a Docker API there that
+  changes nothing but sends `kill`, so
   reverse proxies that route by labels and dashboards find the machines as
   containers, and `auto-update` moves labelled machines to the image their tag
   names now. See [The Docker API](/docs/docker-api/).
@@ -142,10 +145,10 @@ in [Machines](/docs/machines/).
 
 ## Networking
 
-Every machine joins `nspawn0`, a docker0 style bridge that nspawn manages
-itself: fixed addresses, NAT, published ports (`-p 8080:80`) and a generated
+Every machine joins `nspawn0`, a bridge that nspawn manages itself: fixed
+addresses, NAT, published ports (`-p 8080:80`) and a generated
 `/etc/hosts` with the names of the other machines. `network create` makes
-more networks like docker's user-defined ones, a machine may join several of
+more networks, each a bridge of its own, a machine may join several of
 them with names of its own on each, `--network host` shares the host's network
 instead, `--network none` gives a machine no network, and `--network veth`
 gives booted machines the classic systemd-nspawn virtual ethernet pair
@@ -166,9 +169,9 @@ configured by systemd-networkd. See [Networking](/docs/networking/).
   systemd supervises them, machined tracks them. nspawn only drives them, and
   its own service holds no machine open: it is started on demand and goes away
   again.
-- It is not an orchestrator. Compose files run on one host, as with docker
-  compose; there is no swarm, no service discovery beyond the names on the
-  networks, no scheduling across hosts.
+- It is not an orchestrator. Compose files run on one host; there is no
+  service discovery beyond the names on the networks and no scheduling across
+  hosts.
 - It does not bring mkosi: mkosi configurations need
   [mkosi](https://github.com/systemd/mkosi) installed on the host. Dockerfiles
   build with nspawn's own builder.

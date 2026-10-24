@@ -23,7 +23,7 @@ An image reference has the form `[registry/]repository[:tag|@digest]`:
 - Repository names may only contain lowercase letters, digits, `.`, `_`, `-`
   and `/`. Official Docker Hub images live under `library/`, so nginx is
   `docker.io/library/nginx`; `search` prints references in that form, and
-  Docker Hub's names read as docker reads them: `docker.io/alpine` is
+  Docker Hub's short names are expanded: `docker.io/alpine` is
   `docker.io/library/alpine`, and `index.docker.io` is `docker.io`.
 - A digest is a sha256 one; sha384 and sha512 digests are refused, in a
   Dockerfile's `FROM` too.
@@ -83,7 +83,7 @@ pinned to one build. <https://hub.nspawn.org/> browses the lot.
 sudo nspawn search TERM [--source hub|dockerhub] [-n LIMIT]
 ```
 
-`search` is `docker search` across the sources nspawn knows: the configured
+`search` looks in the sources nspawn knows: the configured
 hub (its catalog, case-insensitive substring match, with the tags of every
 match) and Docker Hub (its search API). Every hit names its source and the
 reference `pull` takes:
@@ -112,15 +112,15 @@ sudo nspawn logout docker.io
 
 `login` asks for the user name and, without echo, the password on the
 terminal, or reads the password from standard input with `--password-stdin`
-(which needs `-u`), and checks them the way `docker login` does: `GET /v2/` on
-the registry, then basic authentication or a token request at the realm the
+(which needs `-u`), and checks them against the registry: `GET /v2/` on
+it, then basic authentication or a token request at the realm the
 registry announces. Bad credentials are refused. A registry that never asks for
 credentials gets them stored anyway, with a note saying so.
 
-Credentials are kept in `/etc/nspawn/auth.json`, mode 0600, in the `auth.json`
-format that podman and skopeo use. That file is the only one consulted: the
-work happens in the service, which has no home directory of yours to look into,
-so what `docker login` or `podman login` left behind does not carry over. Every
+Credentials are kept in `/etc/nspawn/auth.json`, mode 0600, in the format of
+containers-auth.json(5). That file is the only one consulted: the work happens
+in the service, which has no home directory of yours to look into, so
+credentials other tools keep for your user do not carry over. Every
 operation chooses the credentials of the registry it talks to, so the hub's
 never travel to Docker Hub; the many names of Docker Hub (`docker.io`,
 `index.docker.io`, `registry-1.docker.io`) are one entry.
@@ -153,8 +153,8 @@ hub.nspawn.org/fedora:44: manifest 9240778b2c77 with 1 layer(s), assembling as o
 An image without a signature (a tag dated before the signing began, or one
 pushed by hand with `nspawn push`) is refused with `carries no signature`, and
 so is one whose signatures do not verify, with the reason of each. `--no-verify`
-on `pull`, `run` and `create` skips the check for that command, like docker's
-`--disable-content-trust`, and on `build` for the base images it pulls; `create`
+on `pull`, `run` and `create` skips the check for that command, and on `build`
+for the base images it pulls; `create`
 checks only an image it has to pull, never a local source. `inspect` shows who signed (`signed_by`: `key <hint>, keyless
 <identity>`) and when (`signed_at`), which a machine made with `create`
 inherits from its source.
@@ -182,7 +182,7 @@ sudo nspawn pull REFERENCE [--name NAME] [--backend BACKEND] [--mode MODE] [--fo
 indexes are followed) and checks the image's signatures where its registry has a
 policy (the hub's is built in; see [Signed images](#signed-images)) before
 anything is downloaded. It then downloads every layer and the config blob that
-is not already in the store, three at a time as docker does, each checked
+is not already in the store, three at a time, each checked
 against its sha256 digest while it streams: a blob is written next to its final
 name and renamed only once verified, so an interrupted download never passes for
 a complete one, and a download cut short takes its part file with it. It says of
@@ -254,7 +254,7 @@ sudo nspawn create SOURCE NAME [--backend BACKEND] [--network NETWORK]... [-p [I
                    [--restart POLICY] [-m SIZE] [--cpus N] [--pids-limit N] [OPTIONS OF start] [-f] [-- ARGUMENTS...]
 ```
 
-`create` is `docker create`: another machine from an image that is already
+`create` makes another machine from an image that is already
 local, given by its name or by the reference it was pulled from, without
 touching the registry. A reference that is not local is pulled first, under
 the image's own name, as `run` does. The machine shares the source's layers
@@ -307,10 +307,11 @@ and the published ports are brought in line with the machines that still run.
 Named volumes are not deleted: they may belong to another machine. `nspawn
 volume ls` shows them and `volume rm` or `volume prune` removes the unused ones.
 
-`images ls --json` prints the list as the service returns it.
+`images ls --json` prints the list as the service returns it. `nspawn images`
+without a subcommand prints the same list as `images ls`, `--json` included.
 
 `system df` shows what images, machines, volumes and the build cache take on
-disk, as docker's does (`-v` for each of them, `--json`):
+disk (`-v` for each of them, `--json`):
 
 ```text
 $ sudo nspawn system df

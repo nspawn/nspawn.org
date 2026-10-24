@@ -5,11 +5,11 @@ description: >-
   docker compose files and commands, run by nspawn compose on nspawn's machines.
 ---
 
-`nspawn compose` reads docker compose's files and takes its commands and flags,
-with output in docker compose's format: in a directory with a `compose.yaml`,
-`sudo nspawn compose up -d` brings the services up and
-`sudo nspawn compose down` takes them away. It matches docker compose 5.6.0,
-and is a client of the [service](/docs/overview/#the-service) like every other
+`nspawn compose` runs docker compose files on nspawn's machines, with the
+commands, flags and output of docker compose 5.6.0: in a directory with a
+`compose.yaml`, `sudo nspawn compose up -d` brings the services up and
+`sudo nspawn compose down` takes them away. It is a client of the
+[service](/docs/overview/#the-service) like every other
 command, so it takes the same permissions.
 
 ## A project
@@ -85,9 +85,9 @@ with `-v`, the volume.
 
 ## How a project becomes machines
 
-- A service becomes a machine per replica, named as docker names its
-  containers, `PROJECT-SERVICE-N` with `_` written `-`. The machines carry
-  docker compose's `com.docker.compose.*` labels, which is how `ps`, `logs`,
+- A service becomes a machine per replica, named `PROJECT-SERVICE-N` with `_`
+  written `-`. The machines carry the `com.docker.compose.*` labels, which is
+  how `ps`, `logs`,
   `stop`, `down` and the rest find a project again, from its files or from
   `-p NAME` alone.
 - An image that names no registry comes from Docker Hub and is kept under its
@@ -98,18 +98,32 @@ with `-v`, the volume.
   `PROJECT_KEY`. A secret or config from a file is bound read-only where the
   service reads it; one from the environment or written in the file is an
   nspawn [secret](/docs/machines/#secrets), removed by `down`.
-- `depends_on` orders what compose does, as with docker compose: `up`, `start`
+- A volume without a source, or a `VOLUME` of the image nothing of the service
+  mounts over, is an nspawn volume named after the machine, `MACHINE_anon_HEX`.
+  A machine made anew finds its own again; `up -V` makes new ones, and `down -v`
+  and `rm -v` remove them.
+- A network whose definition changed since `up` made it is made anew, with the
+  project's machines on it.
+- `depends_on` orders what compose does: `up`, `start`
   and `run` bring the services up in order and wait for their conditions, and
   `restart` also restarts the services whose `depends_on` sets `restart: true`. The machines carry no
-  `--depends-on`, so a service that others depend on is made anew, scaled down
-  or removed as with docker.
-- A machine is made anew when its service changed (docker compose's config
-  hash) or its image did.
+  `--depends-on`, so nspawn does not keep a service that others depend on from
+  being made anew, scaled down or removed. With `-p NAME` and no `-f`, `down`,
+  `stop`, `logs` and the other commands that act on what runs take the project
+  from the labels, a compose file in the directory or not: the labels say what
+  depends on what, so `down SERVICE` takes the services that depend on it too.
+  With the files it takes that service alone.
+- A machine is made anew when its service changed, which its
+  `com.docker.compose.config-hash` label records, or its image did.
+- A bind source that is missing is made by compose, which runs as you. One
+  under a directory you cannot look into (`/etc/letsencrypt/live` for anyone
+  but root) is left to the service, which runs as root and mounts it, or
+  refuses it when it is not there either.
 
 ## Builds
 
 A service with a `build` section is built by nspawn's
-[builder](/docs/building/#dockerfiles) whenever docker compose would build it: when its
+[builder](/docs/building/#dockerfiles): when its
 image is not here (an image it names is pulled first, and built when the pull
 fails), every time with `pull_policy: build`, and always with `up --build` or
 `compose build`; `--no-build` builds nothing. Its image is the one it names or
@@ -124,17 +138,17 @@ project built.
 `config`, `up`, `down`, `create`, `start`, `stop`, `restart`, `kill`, `pause`,
 `unpause`, `rm`, `run`, `exec`, `ps`, `ls`, `logs`, `top`, `port`, `images`,
 `pull`, `build`, `scale`, `wait`, `cp`, `stats`, `events`, `volumes` and
-`version`, with docker compose's flags. `alpha`, `attach`, `bridge`, `commit`,
+`version`, each with its flags. `alpha`, `attach`, `bridge`, `commit`,
 `export`, `publish`, `push` and `watch` are refused with an error that names an
 alternative where there is one; `--dry-run` is refused by the commands that
 change something, as nothing simulates their changes.
 
 ## What is supported
 
-The files load as docker compose loads them: interpolation, `.env`, profiles,
-`include`, `extends`, overrides, `!reset` and `!override`, and the schema's
-checks with docker compose's messages, so `sudo nspawn compose config` prints
-what `docker compose config` prints. What nspawn cannot do (remote build
+The files load with interpolation, `.env`, profiles, `include`, `extends`,
+overrides, `!reset` and `!override`, and the schema's checks, with docker
+compose's messages; `sudo nspawn compose config` prints the project as
+loaded. What nspawn cannot do (remote build
 contexts, SSH forwarding into a build, Swarm-only attributes) `config` shows as
 warnings, and `up`, `create`, `run` and `scale` refuse it for the services they
 start.

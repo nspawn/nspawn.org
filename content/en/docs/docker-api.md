@@ -16,7 +16,7 @@ viewers (Dozzle). A machine that mounts `/var/run/docker.sock` or
 (`:ro` is taken too) or compose's `use_api_socket`, gets nspawn's Docker API
 there instead of the host's docker.
 
-It speaks docker's API 1.51, and any version down to 1.24 a client asks for:
+It speaks the Docker API 1.51, and any version down to 1.24 a client asks for:
 `_ping`, `version` and `info`, the machines as containers with their labels,
 networks and addresses, inspect with the environment, events as they happen,
 logs, stats and top, and the networks. Reads of images, volumes and swarm
@@ -63,7 +63,7 @@ $ sudo nspawn run --rm -u 0 -v /var/run/docker.sock:/var/run/docker.sock \
 {"message":"nspawn's Docker API is read-only: POST /containers/create is not served"}
 ```
 
-As with docker's socket, a machine that has it sees every machine and their
+A machine that has it sees every machine and their
 `-e` variables (`--secret` values never show). Only root inside the machine
 can connect; the curl image runs as a user of its own, hence `-u 0`, and without
 it the connection is refused:
@@ -82,7 +82,7 @@ closed after it stops. The server behind it, `nspawn-api@NAME.service`,
 starts when something connects and leaves after a minute without a
 connection. A container ID comes from the machine's name and creation time, so
 it stays across restarts and updates. nspawn binds the machine's
-`/etc/hostname` from a directory named after that ID, as docker does, so tools
+`/etc/hostname` from a directory named after that ID, so tools
 that look for their own container in `/proc/self/mountinfo` find it.
 
 Each machine's API takes 64 connections at once and closes any past that. At
@@ -92,8 +92,7 @@ gets 503. mstack machines cannot take the socket.
 ## auto-update
 
 `sudo nspawn auto-update` moves the machines labelled
-`org.nspawn.auto-update=registry` to the image their tag points to now, as
-podman auto-update does and watchtower did. Podman's
+`org.nspawn.auto-update=registry` to the image their tag points to now.
 `io.containers.autoupdate=registry` is taken too, on the machine, never from
 its image.
 
@@ -116,8 +115,8 @@ healthcheck, still running ten seconds after its start otherwise. When it does
 not, the old image and what the machine had written are put back and it starts
 again, which the table reports as `rolled back`.
 
-A machine on the new image starts with a fresh writable layer, as docker's
-recreate does: what it keeps belongs in volumes. Machines that share its
+A machine on the new image starts with a fresh writable layer: what it keeps
+belongs in volumes. Machines that share its
 network (`--network container:`) start again with it, and so do compose
 services whose `depends_on` asks for `restart: true`. Built images, references
 pinned by digest, `run --rm` machines, booted machines (their state is their

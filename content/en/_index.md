@@ -52,9 +52,9 @@ machines. Remove an image and the layers nobody uses go with it.
 {{% blocks/feature title="Machines and apps" icon="fa-server" url="docs/machines/" url_text="Running machines" %}}
 
 Images that ship systemd boot like `machinectl start` does. Anything else, for
-example a docker image, runs its entrypoint as an app under a stub init, or as
-PID 1 when it carries s6-overlay, as linuxserver.io's images do, with `-p`, `-e`,
-`-v`, `--label`, `--restart`, `-m` and `--entrypoint` as in docker. `ps`,
+example an image from Docker Hub, runs its entrypoint as an app under a stub
+init, or as PID 1 when it carries s6-overlay, as linuxserver.io's images do,
+with `-p`, `-e`, `-v`, `--label`, `--restart`, `-m` and `--entrypoint`. `ps`,
 `inspect`, `exec`, `shell`, `cp`, `logs`, `stop` and `rm` work on both, and
 docker compose files run with `nspawn compose`.
 
@@ -62,8 +62,8 @@ docker compose files run with `nspawn compose`.
 
 {{% blocks/feature title="Networking that works everywhere" icon="fa-network-wired" url="docs/networking/" url_text="Networking" %}}
 
-A docker0 style bridge with NAT, fixed addresses, published ports and machine
-names that resolve, managed by nspawn itself. It behaves the same whether the
+A bridge with NAT, fixed addresses, published ports and machine names that
+resolve, managed by nspawn itself. It behaves the same whether the
 host runs systemd-networkd, NetworkManager, docker, firewalld or nothing at
 all.
 
@@ -115,8 +115,8 @@ password, and a rule of your own can hand the actions to a group.
 
 {{% blocks/feature title="Build Dockerfiles, push anywhere" icon="fa-hammer" url="docs/building/" url_text="Building images" %}}
 
-`nspawn build` builds a Dockerfile with nspawn's own builder, as `docker build`
-does, or runs mkosi on a directory with a `mkosi.conf`, and imports the result as
+`nspawn build` builds a Dockerfile with nspawn's own builder, or runs mkosi on a
+directory with a `mkosi.conf`, and imports the result as
 a local image; `push` uploads it to the hub or any other registry.
 
 {{% /blocks/feature %}}

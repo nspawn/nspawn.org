@@ -8,7 +8,7 @@ description: >-
   push.
 ---
 
-`build` builds a Dockerfile the way `docker build` does, or runs mkosi on an
+`build` builds a Dockerfile with a builder of nspawn's own, or runs mkosi on an
 mkosi configuration. A directory with a `Dockerfile` (or `dockerfile`,
 `Containerfile`), `-f` naming one, `-` on standard input or any of the
 Dockerfile flags below make it a Dockerfile build; a directory with
@@ -16,8 +16,8 @@ Dockerfile flags below make it a Dockerfile build; a directory with
 build. Either result is stored like a pulled image and can be started right
 away or pushed. A Dockerfile build of a tag replaces the image it built or
 pulled under that reference before, as long as no machine ran from it; `--force`
-replaces any other image of the name, an mkosi build's included. `-f` is the
-Dockerfile, as with docker.
+replaces any other image of the name, an mkosi build's included. `-f` names the
+Dockerfile, so `--force` has no short form.
 
 ## Dockerfiles
 
@@ -38,10 +38,20 @@ refused), and run by a builder of nspawn's own: every stage the target needs
 and `--build-arg`, `ONBUILD`, heredocs, `COPY --chown --chmod --parents
 --exclude --link`, `ADD` of local archives (gzip, bzip2, xz, zstd or plain tar,
 unpacked) and of http(s) URLs (`--checksum`), and `RUN --mount` of the cache,
-bind, tmpfs and secret kinds. The context is the directory given. The command
-line packs it as the calling user and leaves out what `.dockerignore` excludes
-(`Dockerfile.dockerignore` next to the Dockerfile wins over it); `-` takes a
-context tar, or a Dockerfile with no context, from standard input.
+bind, tmpfs and secret kinds, and `--build-arg SOURCE_DATE_EPOCH=SECONDS` for the
+time of the image and of the history entries the build adds. The context is the
+directory given. The command line packs it as the calling user, everything owned
+by root, times to the nanosecond and file capabilities kept, and leaves out what
+`.dockerignore` excludes (`Dockerfile.dockerignore` next to the Dockerfile wins
+over it); `-` takes a context tar, unpacked with its owners, or a Dockerfile with
+no context, from standard input.
+
+An archive that `ADD` unpacks goes into the destination entry by entry: an entry
+replaces what is at its path unless both are directories, a symlink on the way
+is followed inside the destination, a parent the archive does not list is made
+0755, and its owners (unless `--chown`), modes, times, FIFOs, device nodes and
+extended attributes are kept. A file `ADD` fetches from a URL has the time of
+its `Last-Modified`, the epoch without one.
 
 A static program built in one stage and copied into an empty image:
 
@@ -81,10 +91,10 @@ hello from a scratch image
 Every step runs in a root of its own, an overlay of the layers so far, and what
 it changes becomes a layer. A `RUN` runs under systemd-nspawn with the
 confinement of an app machine (the default capabilities, the system call
-filter, no user namespace so that files keep their owners), as PID 1, in a
-network namespace the build sets up on the default bridge; `RUN --network=none`
-has none, and `--network=host` needs `--allow network.host`. A layer is the tar
-BuildKit writes of the same tree; its gzip blob differs.
+filter, no user namespace so that files keep their owners), as PID 1 with the
+hostname `buildkitsandbox`, in a network namespace the build sets up on the
+default bridge; `RUN --network=none` has none, and `--network=host` needs
+`--allow network.host`. A `RUN --mount=type=tmpfs` is mode 1777.
 
 Steps that ran before with the same inputs come from the build cache, so the
 same build again takes a moment and gives the same image ID:
@@ -131,15 +141,16 @@ here.
 | `--no-verify` | Pull the base images without verifying their signatures. |
 | `--platform`, `--load` | This host's platform is the only one; the image is local already. |
 
-The flags buildx keeps for compatibility and ignores (`--rm`, `--force-rm`,
-`-m`, `--memory-swap`, `-c`, `--cpu-period`, `--cpu-quota`, `--cpuset-cpus`,
-`--cpuset-mems`, `--compress`, `--squash`, `--isolation`, `--security-opt`)
-are taken and ignored here too, three of them (`--isolation`, `--security-opt`,
-`--squash`) with buildx's warning.
+`--rm`, `--force-rm`, `-m`, `--memory-swap`, `-c`, `--cpu-period`,
+`--cpu-quota`, `--cpuset-cpus`, `--cpuset-mems`, `--compress`, `--squash`,
+`--isolation` and `--security-opt`, which Makefiles still give, are taken and
+ignored, three of them (`--isolation`, `--security-opt`, `--squash`) with a
+warning.
 
-A failing step ends the build with BuildKit's message,
+A failing step ends the build with
 `process "/bin/sh -c false" did not complete successfully: exit code: 1`, and
-leaves nothing behind; a build whose command line goes away (Ctrl-C) stops the
+leaves nothing behind; a step whose process a signal ends exits with 128 plus
+the signal's number, and a build whose command line goes away (Ctrl-C) stops the
 same way.
 
 ### The build cache
@@ -154,17 +165,23 @@ Total:		1.141GB
 image shares (`-a` all of them, `--filter until=24h`, `--keep-storage 10g`),
 `system df` counts the cache and `system prune` removes it.
 
-### Differences from docker build
+### What the builder does not do
 
 No SSH forwarding (`--ssh`), no output other than a local image (`--output`,
 `--cache-to`), no named, remote or git contexts, no `ADD` of a git repository, no
-attestations, only this host's platform, no `RUN --security=insecure` or `RUN
---device`, and no linter (`--check`, `--call`).
+attestations (`--provenance=false` and `--sbom=false` are taken), only this
+host's platform, no `RUN --security=insecure` or `RUN --device`, no `--check` or
+`--call`, and no linter: a `# check=` directive or `BUILDKIT_DOCKERFILE_CHECK` is
+read and its words checked, and no rule runs.
 Stages run one after another; `COPY --link` copies as a plain `COPY`; `/run` is
-a tmpfs during a `RUN`, so what a step writes there is not kept. Each step
-starts from the layers as the image keeps them, so what a layer does not carry
-(ACLs and extended attributes other than file capabilities) is gone for the
-next step.
+a tmpfs during a `RUN`, so what a step writes there is not kept, and
+systemd-nspawn adds `container=systemd-nspawn`, `container_uuid`, `USER` and
+`LOGNAME` to a step's environment. Each step starts from the layers as the image
+keeps them, so what a layer does not carry (ACLs and extended attributes other
+than file capabilities) is gone for the next step. FIFOs and device nodes of a
+context directory are left out of it; those of a context tar are kept. A `RUN` of
+`USER 0:GID` or `USER root:GROUP` runs with group 0, and a `RUN` as root without
+root's supplementary groups: systemd-nspawn sets no group of its own for root.
 
 ## mkosi
 

@@ -174,8 +174,8 @@ sudo nspawn stop web
 ```
 
 `sudo nspawn run -d docker.io/library/nginx:latest --name web -p 8080:80` does
-the pull and the start in one step, like `docker run -d`. Without `-d`, `run`
-stays attached as `docker run` does: `sudo nspawn run -it --rm
+the pull and the start in one step. Without `-d`, `run` stays attached:
+`sudo nspawn run -it --rm
 docker.io/library/alpine:3 sh` gives you a shell in a machine that goes away
 when you leave it. The port and any other flag given to `start` or `run` are
 remembered, so the next `sudo nspawn start web` publishes it again. `stop` sends
@@ -198,7 +198,7 @@ keeps your credentials for that registry only; see
 - [Compose](/docs/compose/): docker compose files, run by `nspawn compose`.
 - [Building images](/docs/building/): Dockerfiles and mkosi with `build`, and
   `push`.
-- [The Docker API](/docs/docker-api/): docker's socket for reverse proxies and
-  dashboards, and `auto-update`.
+- [The Docker API](/docs/docker-api/): the API nspawn serves to reverse proxies
+  and dashboards, and `auto-update`.
 - [Configuration](/docs/configuration/): `/etc/nspawn/nspawn.toml`, environment
   variables and flags.

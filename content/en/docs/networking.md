@@ -14,9 +14,9 @@ and the choice sticks for the next start.
 | --- | --- | --- |
 | `bridge` | Every image nspawn installs | A fixed address on the `nspawn0` bridge, NAT to the outside, published ports, the names of the other machines and of the host. Needs nothing from the host's own network manager. |
 | a network's name | | The same on a bridge of its own, made with `network create`; several at once, with `--network` repeated: see [Networks of your own](#networks-of-your-own). |
-| `host` | | The host's network namespace, like `docker run --network host`: the machine sees the host's interfaces and binds to the host's ports. Works for both kinds of image. |
-| `none` | | No network at all, like `docker run --network none`: `lo` and nothing else. Works for both kinds of image. |
-| `container:NAME` | | The network namespace of the running machine `NAME`, like `docker run --network container:NAME`: its interfaces, address, hosts file and resolv.conf, nothing of the machine's own. App images only; see [container:NAME](#containername). |
+| `host` | | The host's network namespace: the machine sees the host's interfaces and binds to the host's ports. Works for both kinds of image. |
+| `none` | | No network at all: `lo` and nothing else. Works for both kinds of image. |
+| `container:NAME` | | The network namespace of the running machine `NAME`: its interfaces, address, hosts file and resolv.conf, nothing of the machine's own. App images only; see [container:NAME](#containername). |
 | `veth` | Images not installed by nspawn | The classic systemd-nspawn setup: a virtual ethernet pair whose host end is configured by systemd-networkd through the stock `80-container-ve.network`. Booted images only. |
 
 ## The bridge
@@ -45,8 +45,8 @@ builds its network namespace before the program starts: `ip netns`, a veth pair
 on the bridge, the address and the default route, handed to systemd-nspawn with
 `NamespacePath=` (`--network-namespace-path=` on its command line before systemd
 259), plus a generated `/etc/resolv.conf`. The namespace lives at
-`/run/netns/nspawn-NAME` while the machine runs and goes away with it. As in a
-docker container, it gets `net.ipv4.ping_group_range=0 2147483647` (ICMP echo
+`/run/netns/nspawn-NAME` while the machine runs and goes away with it. It
+gets `net.ipv4.ping_group_range=0 2147483647` (ICMP echo
 sockets for every group, what a ping without raw sockets uses) and
 `net.ipv4.ip_unprivileged_port_start=0` (ports below 1024 for every user), and
 then the machine's `--sysctl` values, which win.
@@ -63,8 +63,7 @@ over IPv6 all the same; see [IPv6](#ipv6).
 
 ## Networks of your own
 
-Like docker's user-defined networks, `network create` makes a bridge of its own
-for a group of machines:
+`network create` makes a bridge of its own for a group of machines:
 
 ```shell
 sudo nspawn network create front --label tier=edge
@@ -104,17 +103,17 @@ sides while `front` and `back` still do not reach each other. `veth`, `host`,
 `none` and `container:NAME` go alone.
 
 `--network-alias NAME` gives a machine another name on its primary network,
-`--network-alias NETWORK=NAME` on that network, as `docker run
---network-alias` does: every member of the network resolves the alias as well,
+`--network-alias NETWORK=NAME` on that network: every member of the network
+resolves the alias as well,
 so `postgres` reaches `db` now and can be given to another machine later. An
 alias several machines share leads to the one whose name sorts first.
 `--network-alias none` forgets them.
 
 `--ip ADDRESS` fixes the machine's address on its primary network, `--ip
-NETWORK=ADDRESS` on another one, as docker's `--ip` does: on a network made
-with `network create` (docker refuses it on its default network too), inside
-its subnet, and nobody else's address there, or the start or create is refused
-with docker's words. The address is kept across restarts, and a machine made
+NETWORK=ADDRESS` on another one: on a network made with `network create`, not
+the default one, inside its subnet, not its gateway, and nobody else's address
+there, or the start or create is refused. The address is kept across restarts,
+and a machine made
 from this one with `create` gets an address of its own.
 
 ```text
@@ -127,7 +126,7 @@ $ sudo nspawn exec fixed -- ip -4 -o addr show host0
 ```
 
 `network connect [--alias NAME] [--ip ADDRESS] NETWORK MACHINE` and `network
-disconnect NETWORK MACHINE` change the networks a machine joins, like docker's.
+disconnect NETWORK MACHINE` change the networks a machine joins.
 A running app or booted machine gets an interface on the network at once
 (`hostN`, with its address; its default route stays where it was, unless it had
 none and the network leads out) and loses it at once, and from its next start
@@ -156,7 +155,7 @@ and ports, and `network rm` and `network prune` remove the ones no machine
 uses, bridge, rules and firewall exceptions included; `network prune --filter
 label=KEY[=VALUE]` (or `until=`) removes only the unused ones it selects.
 `network create --label KEY=VALUE` tags a network for whoever reads `network
-inspect`, as docker's does:
+inspect`:
 
 ```shell
 sudo nspawn network ls
@@ -224,8 +223,8 @@ sudo nspawn start web -p 8080:80 -p 5353:53/udp -p 127.0.0.1:9090:9090 -p 8000-8
 
 On IPv4 each `-p [IP:]HOST:CONTAINER[/udp]` becomes a DNAT entry in the `ip
 nspawn` table. Without an address the port is reachable from other hosts, from
-the host's own addresses and from `127.0.0.1` (through `route_localnet`, as
-docker does without its userland proxy); with one, `127.0.0.1:9090:9090` say, on
+the host's own addresses and from `127.0.0.1` (through `route_localnet`); with
+one, `127.0.0.1:9090:9090` say, on
 that address of the host alone, for a reverse proxy in front. A range,
 `8000-8010:8000-8010`, is one mapping per port, which `inspect` shows one by
 one. The entries are installed once the machine is registered and removed when
@@ -243,12 +242,12 @@ ports directly.
 ### IPv6
 
 The machines have IPv4 addresses alone, and nftables cannot translate IPv6 into
-IPv4, so a port answers on the host's IPv6 addresses through a proxy, as
-docker's userland proxy serves it. `nspawn-proxy-NAME.service`, a transient
+IPv4, so a port answers on the host's IPv6 addresses through a proxy in user
+space. `nspawn-proxy-NAME.service`, a transient
 unit the machine's hooks start once it runs and stop with it, listens there and
 relays TCP connections and UDP datagrams to the machine's address; UDP replies
 leave from the address the client wrote to, so HTTP/3 works too. The IP of `-p`
-says where a port is published, as with docker:
+says where a port is published:
 
 | `-p` | Where |
 | --- | --- |
@@ -268,8 +267,8 @@ A link-local address (`fe80::`) cannot be named, as it needs an interface;
 `[::]` takes it with the others. The port checks cover the IPv6 side as well,
 and when the proxy cannot listen, `start` says so and the IPv4 side works all
 the same (`journalctl -u nspawn-proxy-web` says why). A machine sees an IPv6
-client as the bridge's gateway address, not the client's own, as with docker's
-proxy. The client comes in through the host's input path, not its forwarding,
+client as the bridge's gateway address, not the client's own. The client comes
+in through the host's input path, not its forwarding,
 so a host firewall has to let the port in, as for any service of the host;
 nspawn changes no rule for it.
 
@@ -285,7 +284,11 @@ nspawn changes no rule for it.
   then adds two rules to the `DOCKER-USER` chain, which docker reserves for
   that, or to the top of `FORWARD` itself: anything out of the bridge, and into
   the bridge only what was published or belongs to a connection a machine
-  opened. That needs the `iptables` command, which those tools bring with them.
+  opened. Where docker or ufw is installed and has not set the policy yet, the
+  rules go to `FORWARD` all the same, so that they are there when it changes:
+  ufw sets it when it is enabled, machines running or not, and docker when it
+  is the one that turns IP forwarding on. Neither empties `FORWARD`. That needs
+  the `iptables` command, which those tools bring with them.
 - Where something else drops forwarded traffic, a hand-written nftables
   firewall or those same rules without the `iptables` command to edit them,
   `start` says so and the exception has to be made by hand. Without it the
@@ -319,14 +322,14 @@ namespace.
 
 ## none
 
-`--network none` sets `Private=yes`: the machine has `lo` and nothing else,
-like `docker run --network none`. Published ports do not apply, and an app that
+`--network none` sets `Private=yes`: the machine has `lo` and nothing else.
+Published ports do not apply, and an app that
 runs this way keeps its user namespace too.
 
 ## container:NAME
 
 `--network container:NAME` puts an app machine in the network namespace of the
-machine `NAME`, docker's sidecar pattern (a VPN client with the programs that
+machine `NAME`, the sidecar pattern (a VPN client with the programs that
 must go through it, for one): the same interfaces and address, `NAME`'s hosts
 and resolv.conf files, and nothing of the machine's own. A port the program
 serves is published with `-p` on `NAME`, since that is where the address is.
@@ -335,7 +338,7 @@ running when the machine starts (`--depends-on NAME` has it started first, at
 boot as well), and cannot be removed while a machine names it, unless that
 machine goes in the same `rm`. When `NAME` stops or restarts, the machine keeps
 the namespace it joined, which then leads nowhere, and has to be restarted to
-join the new one, as with docker.
+join the new one.
 
 ```shell
 # the provider's settings (VPN_SERVICE_PROVIDER and the rest) go in vpn.env
@@ -363,8 +366,8 @@ is not a node under `/dev`, and `--network host` cannot either: the machines
 run in a user namespace, which may not configure the host's interfaces. The
 interface is moved into the machine's network namespace before its program or
 init runs and is back on the host when the machine stops or is removed, with
-its name kept on both sides, as systemd-nspawn's `Interface=` and LXC's `phys`
-type do it. It arrives down and unconfigured, as the kernel moves it: the
+its name kept on both sides, as systemd-nspawn's `Interface=` does it. It
+arrives down and unconfigured, as the kernel moves it: the
 machine brings it up and configures it, with `ip` in an app or its
 systemd-networkd in a booted machine. The flag is repeatable and remembered
 like the rest, `--interface none` forgets them, and `inspect` lists them as

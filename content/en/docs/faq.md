@@ -23,13 +23,13 @@ images on the hub contain systemd as well; images without an init system run as
 
 ## Is this docker?
 
-No. The commands and flags look alike on purpose (`-p`, `-e`, `-v`,
-`--entrypoint`, `create`, `exec`, `logs`), but the machines are systemd-nspawn
-containers managed by systemd: they are `systemd-nspawn@NAME.service` units,
+No. nspawn's machines are systemd-nspawn containers managed by systemd: they are
+`systemd-nspawn@NAME.service` units,
 appear in `machinectl list`, log to journald and boot a full init when the
 image has one. nspawn's own service holds none of them open. docker compose
 files run with `nspawn compose`, Dockerfiles build with `nspawn build`, and a
-machine that mounts docker's socket gets a Docker API that reverse proxies and
+machine that mounts `/var/run/docker.sock` gets a Docker API that reverse
+proxies and
 dashboards read, but there is no orchestration across hosts.
 
 ## Can I run images from Docker Hub?
@@ -122,21 +122,22 @@ Yes. nspawn creates the bridge, its addresses and its nftables rules itself,
 and hands each machine its address through a generated file or a prepared
 network namespace. Neither systemd-networkd nor NetworkManager on the host is
 involved; only `--network veth` depends on systemd-networkd. With firewalld the
-bridge is put in the trusted zone, and on hosts where docker or ufw set the
-forward policy to drop, nspawn adds the exception the bridge needs. See
+bridge is put in the trusted zone, and on hosts where docker or ufw sets the
+forward policy to drop, or is installed and may set it later, nspawn adds the
+exception the bridge needs. See
 [Firewalls](/docs/networking/#firewalls).
 
 ## What is the difference between exec and shell?
 
-`exec` enters the machine's namespaces, like `docker exec`: nothing is needed
-inside, the exit code comes back and the program is found on the machine's
+`exec` enters the machine's namespaces: nothing is needed inside, the exit code
+comes back and the program is found on the machine's
 `PATH`. `shell` opens an interactive shell: machined's login session for a
 booted machine, which needs D-Bus inside, or `/bin/sh` in the namespaces for an
 app.
 
 ## How do I keep data across restarts and rebuilds?
 
-With volumes, as in docker: `-v /srv/data:/data` mounts a host directory,
+With volumes: `-v /srv/data:/data` mounts a host directory,
 `-v pgdata:/var/lib/postgresql` a named volume that nspawn keeps under
 `/var/lib/nspawn/volumes/pgdata`. Named volumes survive `rm` and `images rm`. See
 [Volumes](/docs/machines/#volumes).

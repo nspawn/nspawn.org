@@ -94,7 +94,8 @@ gets 503. mstack machines cannot take the socket.
 `sudo nspawn auto-update` moves the machines labelled
 `org.nspawn.auto-update=registry` to the image their tag points to now.
 `io.containers.autoupdate=registry` is taken too, on the machine, never from
-its image.
+its image, with `image` meaning `registry` and `disabled` or an empty value no
+updates.
 
 ```text
 $ sudo nspawn run -d --name tagged -l org.nspawn.auto-update=registry \
@@ -122,13 +123,14 @@ services whose `depends_on` asks for `restart: true`. Built images, references
 pinned by digest, `run --rm` machines, booted machines (their state is their
 writable layer), flat and mstack ones, and machines whose image declares a
 volume (`VOLUME`) none of their own volumes covers, whose data would stay in the
-old writable layer, are left alone and show `skipped`; the reason goes to
-standard error for a machine named on the command line, and is in `--json`
-always.
+old writable layer, are left alone and show `skipped`, as the `local` policy
+does; the reason goes to standard error for a machine named on the command
+line, and is in `--json` always. A policy that is none of these (a misspelt
+one) shows `failed`, so that the run and its timer show it.
 
 `--dry-run` only says which machines have a newer image waiting (`pending`).
 The `UPDATED` column takes `false`, `pending`, `true`, `failed`, `rolled back`
-or `skipped`; `--json` prints a JSON object per machine, and the command fails
+(the old image back and running) or `skipped`; `--json` prints a JSON object per machine, and the command fails
 when a machine failed or went back.
 
 The packages ship a daily timer with up to fifteen minutes of random delay,

@@ -3,7 +3,7 @@ title: Command reference
 linkTitle: Reference
 weight: 10
 description: >-
-  Every command and option of nspawn 2.2.1.
+  Every command and option of nspawn 2.3.0.
 ---
 
 `nspawn --help` and `nspawn COMMAND --help` list the options; this page
@@ -146,7 +146,7 @@ the image's own name, as `run` does. The layers are shared with the source.
 | `-p`, `--publish [IP:]HOST:CONTAINER[/udp]` | Ports to publish on the host, like `start -p`. Not inherited from the source. |
 | `--entrypoint PROGRAM` | Replace the image's entrypoint and drop its cmd, so only the arguments given follow it; an empty string runs the arguments alone. An app left with nothing to run is refused with `no command specified`. App images only. |
 | `-e`, `--env VAR[=VALUE]` | Environment for the program, `VAR=value` or `VAR` copied from the calling shell. App images only. |
-| `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume. |
+| `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume; `z`, `Z`, a propagation, `nocopy` and `cached` are taken and do nothing. |
 | `-l`, `--label KEY=VALUE` | Label the machine, on top of the image's own labels. Not inherited from the source. |
 | `--restart`, `-m`, `--memory-swap`, `--cpus`, `--pids-limit` | Restart policy and limits, as for [start](#start). Not inherited from the source. |
 | the healthcheck options, the other options, `--env-file`, `--label-file`, `--mount`, `--ip`, `--gpus`, `--interface`, `--secret`, `--depends-on` | As for [start](#start). Not inherited from the source; a fixed address cannot be shared, so a copy gets one of its own. |
@@ -389,7 +389,7 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--entrypoint PROGRAM` | Replace the image's entrypoint and drop its cmd, so only the arguments given follow it; an empty string runs the arguments alone. An app left with nothing to run is refused with `no command specified`. App images only. |
 | `-e`, `--env VAR[=VALUE]` | Environment for the program, `VAR=value` or `VAR` copied from the calling shell. Repeatable; `none` forgets them. App images only. |
 | `--env-file FILE` | Variables from a file of `KEY=VALUE` lines (no quoting, no expansion, `#` comments, a `KEY` alone copied from the calling shell), before the `-e` that follow and win. Repeatable. |
-| `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume, made on first use (or made ahead and still empty) with what the image has at `TARGET`, owner and files included. Repeatable; `none` forgets them. |
+| `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume (`z`, `Z`, a propagation, `nocopy` and `cached` are taken and do nothing), made on first use (or made ahead and still empty) with what the image has at `TARGET`, owner and files included. Repeatable; `none` forgets them. |
 | `--mount type=bind\|volume\|tmpfs,source=...,target=...` | The long form of `-v` and `--tmpfs`: `readonly`, `tmpfs-size`, `tmpfs-mode`; a volume needs its name, and image, cluster or npipe mounts, `volume-subpath` and driver options are refused. Repeatable. |
 | `-l`, `--label KEY=VALUE` | Label the machine, on top of the image's own labels. Repeatable; `none` forgets them. |
 | `--label-file FILE` | Labels from a file of `KEY=VALUE` lines, before the `-l` that follow and win. Repeatable. |
@@ -397,7 +397,7 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `-m`, `--memory SIZE` | Memory limit of the whole machine: `512m`, `2g` (at least `4m`), and as much swap again unless `--memory-swap` says otherwise; `0` removes it. Applied at the next start; [update](#update) changes it at once. |
 | `--memory-swap SIZE` | Memory and swap together: equal to `--memory` for no swap, larger for the difference, `-1` for swap without a bound; `0` goes back to as much swap again as memory. Needs `--memory`. Applied at the next start; [update](#update) changes it at once. |
 | `--cpus N` | CPU limit of the whole machine: `0.5`, `2`; `0` removes it. Applied at the next start; [update](#update) changes it at once. |
-| `--pids-limit N` | Most processes and threads the machine may have (at least 16 for a booted machine); `0` removes the limit. Applied at the next start; [update](#update) changes it at once. |
+| `--pids-limit N` | Most processes and threads the machine may have (at least 16 for a booted machine); `0` or `-1` removes the limit. Applied at the next start; [update](#update) changes it at once. |
 | `--health-cmd COMMAND` | Command that says whether the machine is healthy, run inside it as its user through `/bin/sh -c` at every interval: exit 0 is healthy. Replaces the image's `HEALTHCHECK`. [update](#update) changes it at once. |
 | `--health-interval DURATION` | Time between probes: `10s`, `1m30s`, `500ms`. Default: `30s`. |
 | `--health-timeout DURATION` | Time a probe may take before it counts as failed. Default: `30s`. |

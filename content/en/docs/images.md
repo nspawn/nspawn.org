@@ -188,7 +188,14 @@ name and renamed only once verified, so an interrupted download never passes for
 a complete one, and a download cut short takes its part file with it. It says of
 each blob when it is downloaded, and then:
 
-1. assembles the root file system with the chosen [backend](#backends);
+1. assembles the root file system with the chosen [backend](#backends): every
+   entry of a layer lands where its name resolves inside the tree, a
+   symlink's absolute target starting again at the tree's root and `..`
+   stopping there, and each layer's archive is read to its end and has to have
+   the digest the image's config gives it (an image whose config names another
+   number of layers than its manifest is refused). A flat machine's layers are
+   applied beside its directory and moved into place, so that a layer that
+   fails leaves the machine being replaced as it was;
 2. reads the OCI config and decides whether the image is a
    [boot or an app image](#boot-and-app-images);
 3. writes `/etc/systemd/nspawn/NAME.nspawn`, the settings the machine boots

@@ -216,7 +216,8 @@ package cache is kept between builds; the workspace is deleted at the end, and
 the output directory after the import unless `--keep-output` is given.
 
 When mkosi is done, nspawn finds the OCI layout it produced, adds a few
-annotations to the manifest (`org.opencontainers.image.version` with the tag,
+annotations to the manifest (`org.opencontainers.image.version` with the tag
+when mkosi wrote none from `ImageVersion=`,
 `org.opencontainers.image.ref.name` with the full reference, and
 `org.nspawn.builder`), verifies every blob against its digest, copies the blobs
 into the store and installs the image with the chosen backend, with `build` as

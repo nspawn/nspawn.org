@@ -221,6 +221,11 @@ say otherwise:
 - The arguments after `--` replace the image's `cmd` and follow its
   `entrypoint`. `nspawn start web -- nginx -T` still runs
   `/docker-entrypoint.sh` first.
+- An argument may hold newlines, as a script for `sh -c` does, from the command
+  line, compose or the image's own config: the program is then started through
+  the image's `/bin/sh`, which gets the arguments encoded and runs the program
+  with them as they were given. An image without `/bin/sh` cannot take such an
+  argument.
 - `--entrypoint PROGRAM` replaces the entrypoint with one program and drops the
   image's `cmd`, so only the arguments after `--` follow it (`--entrypoint
   /bin/sh` alone is a shell). `--entrypoint ""` drops the entrypoint, so the
@@ -255,11 +260,13 @@ check that an image runs at all.
 sudo nspawn start web -v /srv/www:/usr/share/nginx/html:ro -v pgdata:/var/lib/postgresql
 ```
 
-`-v SOURCE:TARGET[:ro]` mounts a host directory or a named volume:
+`-v SOURCE:TARGET[:MODE]` mounts a host directory or a named volume:
 
 - An absolute `SOURCE` is a host directory (or file) that has to exist already:
   `start` refuses a path that is not there rather than making
-  one. A `SOURCE` without a leading `/` is a **named volume** that nspawn
+  one. A `SOURCE` starting with `.` is a directory relative to the one the
+  command runs in, and a host path is taken cleaned. A `SOURCE` without a
+  leading `/` is a **named volume** that nspawn
   keeps under `/var/lib/nspawn/volumes/NAME`, created on first use with what
   the image has at `TARGET`, owner and files included
   (a program that runs as a user finds its data directory its own), and
@@ -267,12 +274,16 @@ sudo nspawn start web -v /srv/www:/usr/share/nginx/html:ro -v pgdata:/var/lib/po
   `_`, `.` and `-`, and may not start with a dot.
 - `TARGET` is an absolute path inside the machine, other than `/`. The same
   target cannot be mounted twice.
-- `:ro` mounts it read-only; `:rw` is the default. Paths with whitespace are
-  not supported.
+- `:ro` mounts it read-only; `:rw` is the default. The other words a mode may
+  hold are taken and do nothing: `z` and `Z` (the policy labels what a machine
+  sees), a propagation (systemd-nspawn binds with its own), `nocopy`, and
+  `cached`, `delegated` or `consistent`. Paths with whitespace are not
+  supported, and the same `-v` given twice is one mount.
 - `-v` is repeatable and remembered; `-v none` forgets every volume.
 - `--mount type=bind|volume|tmpfs,source=...,target=...` is the long form of
   `-v` and `--tmpfs` (`readonly`, `tmpfs-size`, `tmpfs-mode`); a volume needs
-  its name, since nspawn has no anonymous volumes.
+  its name, since nspawn has no anonymous volumes, and a source or target with
+  `:` is refused.
 
 In machines that run with private users (every machine but an app on a bridge
 network or in another machine's network), the mount is idmapped, so a file root
@@ -299,7 +310,7 @@ sudo nspawn start web --label caddy=web.example --label tier=front
 
 The image's own labels (`LABEL` in a Dockerfile,
 `OciLabels=` in a `mkosi.conf`) are read from its configuration when it is
-pulled or built, and `-l`/`--label KEY=VALUE` on `start`, `run` or `create` adds the
+pulled or built, and `-l`/`--label KEY=VALUE` (a `KEY` alone for an empty value) on `start`, `run` or `create` adds the
 machine's own on top, remembered like the ports; `--label-file FILE` reads
 them from a file of `KEY=VALUE` lines, and `--label none` forgets them.
 nspawn does nothing with them itself: `nspawn inspect` and `ps --json` show the
@@ -338,7 +349,8 @@ unit, which is why nothing inside shows them. `--memory` also
 lets the machine use as much swap again (MemorySwapMax=), and no more, unless
 `--memory-swap` gives memory and swap together: equal to
 `--memory` for no swap, larger for the difference, `-1` for swap without a
-bound. `0` removes a limit, and brings `--memory-swap` back to its default.
+bound. `0` removes a limit, and brings `--memory-swap` back to its default;
+`--pids-limit -1` removes it too.
 
 The restart policy and the limits are remembered like the ports and apply at
 the next start, and
@@ -359,9 +371,10 @@ An image's `HEALTHCHECK` applies as it is, and
 `--health-cmd` with `--health-interval`, `--health-timeout`,
 `--health-retries`, `--health-start-period` and `--health-start-interval` on
 `start`, `run`, `create` and `update` each replace their part of it
-(`--health-interval 10s` alone keeps the image's test); `--no-healthcheck` turns
-it off; timings given without a command on an image that has none are kept and
-probe nothing. Durations are written `10s`, `1m30s` or `500ms`, and the
+(`--health-interval 10s` alone keeps the image's test, and `0` for a timing or
+the retries, like an empty `--health-cmd`, is no value given); `--no-healthcheck`
+turns it off; timings given without a command on an image that has none are kept
+and probe nothing. Durations are written `10s`, `1m30s` or `500ms`, and the
 defaults are 30 seconds between probes, 30 seconds for a probe, 3 failures in a
 row before the machine is unhealthy, no start period, and 5 seconds between
 probes during one.
@@ -480,18 +493,23 @@ its unit:
   is the one [App machines](#app-machines) lists, SYS_BOOT included, so that a
   reboot from inside ends the machine; for
   a machine in a user namespace it is systemd-nspawn's. An interface given with
-  `--interface` keeps `NET_ADMIN` on its own. `--cap-drop ALL --cap-add
+  `--interface` keeps `NET_ADMIN` on its own; a name that is no capability is
+  refused. `--cap-drop ALL --cap-add
   NET_BIND_SERVICE` keeps NET_BIND_SERVICE alone, and
   `--privileged` keeps every one.
 - `--read-only`: the root read-only. `--tmpfs PATH[:OPTIONS]`: an empty tmpfs
   at a path (`size=64m`, `mode=0700`; 1777 when given without options),
   which is how a read-only machine still writes `/tmp` or
-  `/var/cache`. `/run` is a tmpfs of every machine already, so a `--tmpfs` on or
+  `/var/cache`. The options are tmpfs's own (`size`, `mode`, `uid`, `gid`,
+  `nr_inodes`, `nr_blocks`, `mpol`, `huge`, `inode32`, `inode64`, `noswap`):
+  systemd-nspawn mounts it read-write, nodev and strictatime, so `ro`,
+  `noexec`, `nosuid` and the other atime flags are refused rather than
+  dropped. `/run` is a tmpfs of every machine already, so a `--tmpfs` on or
   below it (`/var/run` in most images) is
   left out with a note. `--shm-size`: the size of `/dev/shm`.
-- `--device HOST[:CONTAINER[:PERMISSIONS]]`: a device node of the host, bound
-  into the machine and allowed to its cgroup (`r`, `w`, `m`; `rwm` by
-  default), or a directory such as `/dev/dri`, whose nodes are allowed one by
+- `--device HOST[:CONTAINER][:PERMISSIONS]`: a device node of the host, bound
+  into the machine and allowed to its cgroup (`r`, `w`, `m`, each once; `rwm` by
+  default; `/dev/sda:r` is the node at the same place), or a directory such as `/dev/dri`, whose nodes are allowed one by
   one. In a machine with private users the node keeps the host's
   ownership. A CDI name such as `nvidia.com/gpu=all` takes the devices of a
   spec instead; see [GPUs and CDI devices](#gpus-and-cdi-devices).
@@ -650,7 +668,9 @@ template over each machine's fields (`.Names`, `.Image`, `.Command`,
 `.CreatedAt`, `.RunningFor`, `.Ports`, `.State`, `.Status`, `.Labels`,
 `.Label "KEY"`, `.Mounts`, `.Networks`, `.Mode`, `.Address`, `.OS`, `.Pid`),
 `table TEMPLATE` for aligned columns with headers, or `json` for an object per
-line. `inspect -f TEMPLATE` prints a template over each object, a line each:
+line. `inspect -f TEMPLATE` prints a template over each object, a line each; a
+key the object lacks prints `<no value>`, an object the template fails on is said
+after the others are printed, and `-f json` prints the objects on one line:
 
 ```text
 $ sudo nspawn ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'

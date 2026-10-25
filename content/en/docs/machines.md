@@ -173,10 +173,12 @@ the environment, working directory, user and stop signal from the OCI config.
 Its network namespace is built on the host before the program starts, so the
 network is there when it starts.
 
-systemd-nspawn hands its payload `NOTIFY_SOCKET=/run/host/notify`, which only
-root may write to. For an app it is set empty, which a program that notifies
-systemd takes for none, so a program that runs as its own user does not fail on
-it; booted machines keep it.
+systemd-nspawn hands its payload `NOTIFY_SOCKET=/run/host/notify`, a socket only
+root may write to with recent systemd: a program that notifies systemd as another
+user logs that it could not, and goes on. `-e NOTIFY_SOCKET=` (or
+`NOTIFY_SOCKET: ""` in a compose file's `environment`) quiets one that takes an
+empty value for none, as Go's and Erlang's clients do; libsystemd's and Rust's
+refuse it.
 
 A user namespace cannot join a network namespace that belongs to the host, so an
 app on a bridge network runs without one (`PrivateUsers=no`). Capabilities,

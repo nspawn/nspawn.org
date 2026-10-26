@@ -34,51 +34,79 @@ description: >-
 
 ## Installation
 
-A package brings the binary and the files of its service. Every
-[release](https://github.com/nspawn/nspawn/releases) carries an RPM for Fedora,
-a package for Arch, a `.deb` built on Ubuntu 24.04 that also fits later Debian
-and Ubuntu releases, the plain binary in a tarball, and a `SHA256SUMS` over all
-of them. On Arch Linux the AUR has two packages as well:
-[nspawn](https://aur.archlinux.org/packages/nspawn), built from the latest
-release, and [nspawn-git](https://aur.archlinux.org/packages/nspawn-git), from
-the latest commit on `master`.
+The packages are built and tested with every release and bring the service's
+files and updates along: use one where you can.
 
-On Fedora or RHEL with SELinux enforcing, the `nspawn-selinux` package carries
-the domain the service runs in; the RPM recommends it, so a plain `dnf install`
-of the package brings it along. Without it the service runs unconfined and the
-bus drops it when it passes a descriptor, which is what `exec`, `shell`,
-`logs` and `cp` do: the rest of the commands work either way.
+### Debian and Ubuntu
 
-To build it yourself you need a Rust toolchain of version 1.88 or newer:
+Debian 13 or later and Ubuntu 24.04 or later, on amd64:
+
+```shell
+sudo curl -fsSLo /etc/apt/sources.list.d/nspawn.sources https://apt.nspawn.org/nspawn.sources
+sudo apt update
+sudo apt install nspawn
+```
+
+### Fedora
+
+Fedora 44 or later, on x86_64:
+
+```shell
+sudo curl -fsSLo /etc/yum.repos.d/nspawn.repo https://rpm.nspawn.org/nspawn.repo
+sudo dnf install nspawn
+```
+
+dnf asks to import the signing key: compare its fingerprint with the one
+[below](#the-repositories). On hosts with SELinux enforcing, `nspawn-selinux`
+comes along; it holds the domain the service runs in, without which `exec`,
+`shell`, `logs` and `cp` fail.
+
+### Arch Linux
+
+The AUR has [nspawn](https://aur.archlinux.org/packages/nspawn), from the
+latest release, and [nspawn-git](https://aur.archlinux.org/packages/nspawn-git),
+from the latest commit on `master`. [Chaotic-AUR](https://aur.chaotic.cx/)
+builds both.
+
+### The repositories
+
+apt.nspawn.org and rpm.nspawn.org keep the last five releases, so
+`sudo apt install nspawn=VERSION-1` or `sudo dnf downgrade nspawn-VERSION` goes
+back to an earlier one. Both are signed with this Ed25519 key:
+
+```text
+1294612AB2DC4AE2F6118240FC5E133778B4B3B3
+```
+
+### The binary
+
+Every [release](https://github.com/nspawn/nspawn/releases) also has the plain
+binary, in `nspawn-VERSION-x86_64-linux.tar.gz`, with a `SHA256SUMS`. To build
+it instead you need Rust 1.88 or newer:
 
 ```shell
 git clone https://github.com/nspawn/nspawn.git
 cd nspawn
 cargo build --release
 sudo install -Dm755 target/release/nspawn /usr/local/bin/nspawn
-sudo nspawn daemon --install
-nspawn --version
 ```
 
-`daemon --install` writes the bus policy, the polkit actions, the activation
-file and the unit that let the bus start the service on demand, all naming the
-binary you just installed, plus the units of the [Docker API](/docs/docker-api/)
-and of `auto-update` (its timer stays disabled). A package installs the same
-files. Install the binary in `/usr/local/bin` or `/usr/bin`, not below a home
-directory: the unit of every machine calls nspawn by the path it was installed
-from, and on SELinux hosts a system service is refused a binary under `/home`.
+Then `daemon --install` writes the files a package brings (the bus policy, the
+polkit actions, the units), naming that binary:
 
-On a host with SELinux enforcing, a binary installed by hand keeps the label of
-where it sits, and a service whose binary is not labelled `nspawn_exec_t` runs
-unconfined, so `exec`, `shell`, `logs` and `cp` fail with the client
-disconnected. `daemon --install` says so, and this is the fix:
+```shell
+sudo nspawn daemon --install
+```
+
+Keep the binary in `/usr/local/bin` or `/usr/bin`: the unit of every machine
+calls it by that path, and SELinux refuses a system service a binary under
+`/home`. With SELinux enforcing, it also needs the label of the
+`nspawn-selinux` policy, or `exec`, `shell`, `logs` and `cp` fail:
 
 ```shell
 sudo semanage fcontext -a -t nspawn_exec_t /usr/local/bin/nspawn
 sudo restorecon -v /usr/local/bin/nspawn
 ```
-
-The packages install into `/usr/bin`, which their policy already labels.
 
 ## A first machine
 

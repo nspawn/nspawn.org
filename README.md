@@ -8,29 +8,29 @@ The site is built with [Hugo](https://gohugo.io/) and the
 [Docsy](https://www.docsy.dev/) theme, pulled in as a Hugo module together with
 its npm dependencies.
 
-## Preview with Docker
+## Preview with nspawn
 
-Nothing but Docker is needed on the host:
+Nothing but [nspawn](https://nspawn.org/docs/getting-started/#installation) is
+needed on the host:
 
 ```shell
-docker compose up
+sudo nspawn compose up
 ```
 
 Open <http://localhost:1313>. Edits under `content/`, `assets/` and `layouts/`
 reload live. The first start installs the npm packages into `node_modules/`
-and downloads the Hugo module and the Hugo binary; the caches live in a Docker
+and downloads the Hugo module and the Hugo binary; the caches live in an nspawn
 volume, so later starts are quick.
 
-The container runs as uid and gid 1000 so that `node_modules/` and the build
-output belong to you. If yours differ, pass them along (the `env` form works in
-bash, zsh and fish alike):
+The machine runs as uid and gid 1000 so that `node_modules/` and the build
+output belong to you. If yours differ, pass them along:
 
 ```shell
-env SITE_UID=$(id -u) SITE_GID=$(id -g) docker compose up   # bash, zsh
-env SITE_UID=(id -u) SITE_GID=(id -g) docker compose up     # fish
+sudo env SITE_UID=$(id -u) SITE_GID=$(id -g) nspawn compose up   # bash, zsh
+sudo env SITE_UID=(id -u) SITE_GID=(id -g) nspawn compose up     # fish
 ```
 
-## Preview without Docker
+## Preview without nspawn
 
 Install Node.js (see `.nvmrc`), npm, Go and git; Hugo itself comes from the
 pinned `hugo-extended` npm package. Then:

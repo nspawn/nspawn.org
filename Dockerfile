@@ -1,7 +1,7 @@
 # Development image for the nspawn.org website.
 #
 # Docsy needs Node.js, npm, Go and git; this image bundles them so the host only needs
-# Docker. compose.yaml mounts the repository into it and serves the site on port 1313.
+# nspawn. compose.yaml mounts the repository into it and serves the site on port 1313.
 FROM node:24-bookworm-slim
 
 COPY --from=golang:1.25-bookworm /usr/local/go /usr/local/go

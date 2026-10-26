@@ -3,7 +3,7 @@ title: Command reference
 linkTitle: Reference
 weight: 10
 description: >-
-  Every command and option of nspawn 2.3.1.
+  Every command and option of nspawn 2.3.2.
 ---
 
 `nspawn --help` and `nspawn COMMAND --help` list the options; this page

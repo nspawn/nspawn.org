@@ -1,10 +1,10 @@
-# Local preview of nspawn.org without installing anything on the host:
+# Local preview of nspawn.org with nothing but nspawn on the host:
 #
-#   docker compose up
+#   sudo nspawn compose up
 #
 # then open http://localhost:1313. Edits under content/, assets/ and layouts/ reload live.
-# If your uid/gid are not 1000, pass them (env SITE_UID=$(id -u) SITE_GID=$(id -g) docker compose up) so that
-# node_modules/ and the build output belong to you.
+# If your uid/gid are not 1000, pass them so that node_modules/ and the build output
+# belong to you: sudo env SITE_UID=$(id -u) SITE_GID=$(id -g) nspawn compose up
 services:
   site:
     build: .

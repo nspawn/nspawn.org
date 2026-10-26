@@ -34,9 +34,6 @@ description: >-
 
 ## Installation
 
-The packages are built and tested with every release and bring the service's
-files and updates along: use one where you can.
-
 ### Debian and Ubuntu
 
 Debian 13 or later and Ubuntu 24.04 or later, on amd64:
@@ -57,9 +54,8 @@ sudo dnf install nspawn
 ```
 
 dnf asks to import the signing key: compare its fingerprint with the one
-[below](#the-repositories). On hosts with SELinux enforcing, `nspawn-selinux`
-comes along; it holds the domain the service runs in, without which `exec`,
-`shell`, `logs` and `cp` fail.
+[below](#the-repositories). With SELinux enforcing, dnf also installs
+`nspawn-selinux`, the policy `exec`, `shell`, `logs` and `cp` need.
 
 ### Arch Linux
 
@@ -70,9 +66,9 @@ builds both.
 
 ### The repositories
 
-apt.nspawn.org and rpm.nspawn.org keep the last five releases, so
-`sudo apt install nspawn=VERSION-1` or `sudo dnf downgrade nspawn-VERSION` goes
-back to an earlier one. Both are signed with this Ed25519 key:
+apt.nspawn.org and rpm.nspawn.org keep the last five releases:
+`sudo apt install nspawn=VERSION-1` or `sudo dnf downgrade nspawn-VERSION`
+installs an earlier one. Both are signed with this Ed25519 key:
 
 ```text
 1294612AB2DC4AE2F6118240FC5E133778B4B3B3
@@ -91,8 +87,7 @@ cargo build --release
 sudo install -Dm755 target/release/nspawn /usr/local/bin/nspawn
 ```
 
-Then `daemon --install` writes the files a package brings (the bus policy, the
-polkit actions, the units), naming that binary:
+Then install the bus policy, the polkit actions and the units of the service:
 
 ```shell
 sudo nspawn daemon --install
@@ -100,8 +95,8 @@ sudo nspawn daemon --install
 
 Keep the binary in `/usr/local/bin` or `/usr/bin`: the unit of every machine
 calls it by that path, and SELinux refuses a system service a binary under
-`/home`. With SELinux enforcing, it also needs the label of the
-`nspawn-selinux` policy, or `exec`, `shell`, `logs` and `cp` fail:
+`/home`. With SELinux enforcing, the binary needs the label of the
+`nspawn-selinux` policy for `exec`, `shell`, `logs` and `cp`:
 
 ```shell
 sudo semanage fcontext -a -t nspawn_exec_t /usr/local/bin/nspawn

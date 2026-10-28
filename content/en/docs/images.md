@@ -178,10 +178,14 @@ the registry, never the policy.
 sudo nspawn pull REFERENCE [--name NAME] [--backend BACKEND] [--mode MODE] [--force] [--no-verify]
 ```
 
-`pull` resolves the reference to the manifest for the host's platform (image
-indexes are followed) and checks the image's signatures where its registry has a
-policy (the hub's is built in; see [Signed images](#signed-images)) before
-anything is downloaded. It then downloads every layer and the config blob that
+`pull` resolves the reference to the manifest for the host's platform and checks
+the image's signatures where its registry has a policy (the hub's is built in;
+see [Signed images](#signed-images)) before anything is downloaded. Of an image
+index it takes the entry of the best platform the host runs: amd64 then 386,
+arm64 from the CPU's variant down to v8 and then 32-bit arm, arm from the CPU's
+variant down to v5. Without one, it tries the entries that name no platform, in
+the index's order, and takes the first whose config gives a platform the host
+runs. It then downloads every layer and the config blob that
 is not already in the store, three at a time, each checked
 against its sha256 digest while it streams: a blob is written next to its final
 name and renamed only once verified, so an interrupted download never passes for
@@ -256,7 +260,7 @@ pulled again; [Machines](/docs/machines/) explains how it changes `start`, `exec
 ## More machines from one image
 
 ```shell
-sudo nspawn create SOURCE NAME [--backend BACKEND] [--network NETWORK]... [-p [IP:]HOST:CONTAINER[/udp]]...
+sudo nspawn create SOURCE NAME [--backend BACKEND] [--network NETWORK]... [-p [IP:][HOST:]CONTAINER[/udp]]...
                    [--entrypoint PROGRAM] [-e VAR[=VALUE]]... [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]...
                    [--restart POLICY] [-m SIZE] [--cpus N] [--pids-limit N] [OPTIONS OF start] [-f] [-- ARGUMENTS...]
 ```

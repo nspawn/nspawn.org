@@ -3,7 +3,7 @@ title: Command reference
 linkTitle: Reference
 weight: 10
 description: >-
-  Every command and option of nspawn 2.3.2.
+  Every command and option of nspawn 2.4.0.
 ---
 
 `nspawn --help` and `nspawn COMMAND --help` list the options; this page
@@ -125,7 +125,7 @@ size, speed and time left; in a pipe or a log only the lines are written.
 
 ```text
 nspawn create SOURCE NAME [--backend BACKEND] [--network NETWORK]... [--network-alias [NETWORK=]NAME]...
-              [-p [IP:]HOST:CONTAINER[/udp]]... [--entrypoint PROGRAM] [-e VAR[=VALUE]]...
+              [-p [IP:][HOST:]CONTAINER[/udp]]... [--entrypoint PROGRAM] [-e VAR[=VALUE]]...
               [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]... [--restart POLICY] [-m SIZE] [--memory-swap SIZE]
               [--cpus N] [--pids-limit N] [HEALTHCHECK OPTIONS] [OTHER OPTIONS] [--interface IFACE]... [--secret SECRET]...
               [--depends-on NAME[:CONDITION][:optional]]... [--env-file FILE]... [--label-file FILE]...
@@ -143,7 +143,7 @@ the image's own name, as `run` does. The layers are shared with the source.
 | `--backend BACKEND` | How to assemble it. Default: like the source. |
 | `--network NETWORK` | Networks of the new machine, as for [start](#start). Default: the source's kind; a network made with `network create` is not inherited, as ports and labels are not. |
 | `--network-alias [NETWORK=]NAME` | Other names of the machine on its networks, as for [start](#start). |
-| `-p`, `--publish [IP:]HOST:CONTAINER[/udp]` | Ports to publish on the host, like `start -p`. Not inherited from the source. |
+| `-p`, `--publish [IP:][HOST:]CONTAINER[/udp]` | Ports to publish on the host, like `start -p`. Not inherited from the source. |
 | `--entrypoint PROGRAM` | Replace the image's entrypoint and drop its cmd, so only the arguments given follow it; an empty string runs the arguments alone. An app left with nothing to run is refused with `no command specified`. App images only. |
 | `-e`, `--env VAR[=VALUE]` | Environment for the program, `VAR=value` or `VAR` copied from the calling shell. App images only. |
 | `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume; `z`, `Z`, a propagation, `nocopy` and `cached` are taken and do nothing. |
@@ -362,7 +362,7 @@ comes along. See
 ## start
 
 ```text
-nspawn start NAME [--network NETWORK]... [--network-alias [NETWORK=]NAME]... [-p [IP:]HOST:CONTAINER[/udp]]...
+nspawn start NAME [--network NETWORK]... [--network-alias [NETWORK=]NAME]... [-p [IP:][HOST:]CONTAINER[/udp]]...
              [--entrypoint PROGRAM] [-e VAR[=VALUE]]... [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]...
              [--restart POLICY] [-m SIZE] [--memory-swap SIZE] [--cpus N] [--pids-limit N]
              [--health-cmd COMMAND] [--health-interval DURATION] [--health-timeout DURATION] [--health-retries N]
@@ -384,7 +384,7 @@ Boots an image as a machine. Every option is remembered for the next start.
 | --- | --- |
 | `--network NETWORK` | Network of the machine: `bridge`, the default network (the default); the name of a network made with [network create](#network-create); `veth`, a veth pair configured by systemd-networkd on the host (booted images only); `host`, the host's own network; `none`, no interface but `lo`; or `container:NAME`, the network namespace of that running machine (app images only; see [container:NAME](/docs/networking/#containername)). Repeatable for several bridge networks, the first one primary: its address is where published ports lead and its gateway the default route, unless it is internal, in which case the first network that is not has the route. `veth`, `host`, `none` and `container:NAME` go alone. |
 | `--network-alias [NETWORK=]NAME` | Another name for the machine on its primary network, or on `NETWORK`: every member of that network resolves it. Repeatable; `none` forgets them. |
-| `-p`, `--publish [IP:]HOST:CONTAINER[/udp]` | Publish a port on the host: on every IPv4 and IPv6 address of the host, or on `IP` alone (`127.0.0.1:8080:80`, `[::1]:8080:80`); `0.0.0.0` is every IPv4 address, `[::]` every IPv6 one. `8000-8010:8000-8010` publishes a range, one mapping per port. Repeatable; `none` forgets them all. |
+| `-p`, `--publish [IP:][HOST:]CONTAINER[/udp]` | Publish a port on the host: on every IPv4 and IPv6 address of the host, or on `IP` alone (`127.0.0.1:8080:80`, `[::1]:8080:80`); `0.0.0.0` is every IPv4 address, `[::]` every IPv6 one. No host port (`80`, `:80`) or 0 takes a free one of the host, kept by the machine; a host range with one port of the machine (`8000-8010:80`) the first free one in it. `8000-8010:8000-8010` publishes a range, one mapping per port. Also `published=HOST,target=CONTAINER[,protocol=udp][,host_ip=IP]`, `target` the only one required. Repeatable; `none` forgets them all. |
 | `--ip [NETWORK=]IP` | A fixed IPv4 address on the primary network, or on `NETWORK`: one made with [network create](#network-create), inside its subnet and nobody else's there. Repeatable, once per network. |
 | `--entrypoint PROGRAM` | Replace the image's entrypoint and drop its cmd, so only the arguments given follow it; an empty string runs the arguments alone. An app left with nothing to run is refused with `no command specified`. App images only. |
 | `-e`, `--env VAR[=VALUE]` | Environment for the program, `VAR=value` or `VAR` copied from the calling shell. Repeatable; `none` forgets them. App images only. |
@@ -417,8 +417,8 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--device HOST[:CONTAINER[:rwm]]` | A device node of the host for the machine (`/dev/ttyUSB0:/dev/ttyUSB0:rw`), or a directory whose nodes are allowed one by one (`/dev/dri`), or a CDI name (`nvidia.com/gpu=all`) for the devices of the host's specs. Repeatable; `none` forgets them. |
 | `--gpus REQUEST` | GPUs of the host's CDI specs: `all`, a count, or `'"device=0,1"'`, for the NVIDIA spec's devices (the AMD one when only that is there); `driver=` says which. See [GPUs and CDI devices](/docs/machines/#gpus-and-cdi-devices). Repeatable; `none` forgets them. |
 | `--dns IP` | DNS server for the machine, instead of the host's. Repeatable; `none` forgets them. |
-| `--dns-search DOMAIN` | DNS search domain, in an app's `resolv.conf` and a booted machine's `.network` file. Repeatable; `none` forgets them. |
-| `--add-host HOST:IP` | A line for the machine's `/etc/hosts`, `HOST:IP` or `HOST=IP` (the second for an IPv6 address); `host-gateway` is the host's address on the machine's network. Repeatable; `none` forgets them. |
+| `--dns-search DOMAIN` | DNS search domain, in an app's `resolv.conf` and a booted machine's `.network` file; 254 characters at most, with a letter among its labels. A trailing dot is dropped and `.` stands for none. Repeatable; `none` forgets them. |
+| `--add-host HOST:IP` | A line for the machine's `/etc/hosts`, `HOST:IP` or `HOST=IP` (the second for an IPv6 address), the IP in brackets or not; the name is anything without colons or whitespace. `host-gateway` is the host's address on the machine's network. Repeatable; `none` forgets them. |
 | `--ulimit NAME=SOFT[:HARD]` | A resource limit of the program (`nofile=1024:4096`, `core=unlimited`). Repeatable; `none` forgets them. |
 | `--oom-score-adj N` | OOM score adjustment of the machine, -1000 to 1000. |
 | `--stop-signal SIGNAL` | Signal `stop` sends the program, instead of the image's (`SIGTERM`). |

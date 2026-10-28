@@ -221,7 +221,7 @@ sudo nspawn network inspect front
 sudo nspawn start web -p 8080:80 -p 5353:53/udp -p 127.0.0.1:9090:9090 -p 8000-8010:8000-8010
 ```
 
-On IPv4 each `-p [IP:]HOST:CONTAINER[/udp]` becomes a DNAT entry in the `ip
+On IPv4 each `-p [IP:][HOST:]CONTAINER[/udp]` becomes a DNAT entry in the `ip
 nspawn` table. Without an address the port is reachable from other hosts, from
 the host's own addresses and from `127.0.0.1` (through `route_localnet`); with
 one, `127.0.0.1:9090:9090` say, on
@@ -234,10 +234,19 @@ address or on that one, or one a service of the host already listens on, is
 refused before the machine starts, and a refused port is not remembered. On a
 machine with several networks the port leads to its primary address.
 
-The list is remembered for the machine: `nspawn start web` next time publishes
-the same ports, and `-p none` forgets them all. Ports need a bridge network
-(not an internal one); a machine on the host's network listens on the host's
-ports directly.
+Without a host port, `-p 80` or `-p :80`, or with 0, the port gets a free one of
+the host, and `nspawn port web` shows which: the kernel hands one out, passing
+over the ports other running machines publish and those a service of the host
+holds. A host range with one port of the machine, `-p 8000-8010:80`, gets the
+first free port of the range, and `-p 80-82` a free host port for each port.
+`create` picks them, or the `start` that gave them. The long form,
+`published=8080,target=80,protocol=udp,host_ip=127.0.0.1`, has the same fields,
+`target` the only one required.
+
+The list is remembered for the machine, the host ports it got included:
+`nspawn start web` next time publishes the same ports, and `-p none` forgets
+them all. Ports need a bridge network (not an internal one); a machine on the
+host's network listens on the host's ports directly.
 
 ### IPv6
 

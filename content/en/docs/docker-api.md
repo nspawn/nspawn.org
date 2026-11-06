@@ -122,7 +122,10 @@ The runner runs as root, or as a user that a polkit rule lets through.
   a copy to or from it is refused until it starts.
 - Images: list, inspect, history, pull (`POST /images/create`), remove and prune.
   A record pulled or built that never ran is an image, not a container; a machine
-  made from it is a container. An image's ID is its config's digest.
+  made from it is a container. An image's ID is its config's digest. An image built
+  here with a name without a registry (`nspawn build -t somos/app:1`, which nspawn
+  files as `hub.nspawn.org/somos/app:1`) goes by that short name too while Docker
+  Hub's image of it is not here, so `docker run somos/app:1` finds it.
 - Volumes and networks: list, inspect, create, remove and prune; connect and
   disconnect with aliases and fixed addresses. `bridge`, `host` and `none` are the
   pre-defined networks.

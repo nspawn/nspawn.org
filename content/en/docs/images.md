@@ -339,7 +339,9 @@ made from; without `-a` it removes the dangling ones, which nspawn's store never
 has, since a tag pulled or built again replaces its record. `system prune`
 removes stopped machines made from an image (by `create` or `run`), networks no
 machine uses and the build cache no image uses; with `-a` also the images no
-machine was made from and the whole build cache. `--filter label=...` and
+machine was made from and the whole build cache, and with `--volumes` the volumes
+no machine uses that were made without a name, which only the Docker API makes.
+`--filter label=...` and
 `until=...` narrow what goes, and `-f` skips the question. `builder prune` takes
 the [build cache](/docs/building/#the-build-cache) alone.
 

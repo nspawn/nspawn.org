@@ -224,8 +224,11 @@ say otherwise:
 - An argument may hold newlines, as a script for `sh -c` does, from the command
   line, compose or the image's own config: the program is then started through
   the image's `/bin/sh`, which gets the arguments encoded and runs the program
-  with them as they were given. An image without `/bin/sh` cannot take such an
-  argument.
+  with them as they were given. A variable's value may hold line breaks the
+  same way (`-e`, compose's `environment`): it goes in encoded and the image's
+  `/bin/sh` turns it back before the program runs; its name is then one of
+  letters, digits and underscores. An image without `/bin/sh` cannot take such
+  an argument or variable.
 - `--entrypoint PROGRAM` replaces the entrypoint with one program and drops the
   image's `cmd`, so only the arguments after `--` follow it (`--entrypoint
   /bin/sh` alone is a shell). `--entrypoint ""` drops the entrypoint, so the
@@ -282,7 +285,7 @@ sudo nspawn start web -v /srv/www:/usr/share/nginx/html:ro -v pgdata:/var/lib/po
 - `-v` is repeatable and remembered; `-v none` forgets every volume.
 - `--mount type=bind|volume|tmpfs,source=...,target=...` is the long form of
   `-v` and `--tmpfs` (`readonly`, `tmpfs-size`, `tmpfs-mode`); a volume needs
-  its name, since nspawn has no anonymous volumes, and a source or target with
+  its name, as a mount makes no anonymous volume, and a source or target with
   `:` is refused.
 
 In machines that run with private users (every machine but an app on a bridge
@@ -296,10 +299,11 @@ otherwise. On overlay and flat the volumes come from the settings file and are
 there before the init even runs.
 
 Named volumes outlive the machines that use them. `nspawn volume ls` lists them
-with the machines whose records mount them, `volume create NAME` makes one
-ahead of its first use (filled from the image of the first machine that takes it
-while it is empty), and `volume rm` and `volume prune` remove the ones no
-machine uses; a volume a machine still names is refused until that machine is
+with the machines whose records mount them (`--filter label=KEY[=VALUE]` only
+those with the label), `volume create NAME` makes one ahead of its first use
+(filled from the image of the first machine that takes it while it is empty;
+`--label KEY=VALUE` labels it), `volume inspect` shows what nspawn keeps of them
+as JSON, and `volume rm` and `volume prune` remove the ones no machine uses; a volume a machine still names is refused until that machine is
 started with other volumes (or `-v none`) or removed.
 
 ## Labels
@@ -526,10 +530,13 @@ its unit:
   `stop` still wins, and `-1` waits for as long as the program takes. `kill`
   reads the stop signal to decide whether the restart policy applies.
 - `--timezone MODE`: how systemd-nspawn sets the machine's `/etc/localtime` at
-  each start. Its default, `auto`, points it at the host's zone every time, so
-  a zone set inside with `timedatectl` does not survive a restart; `off` leaves
-  the machine's own, and `copy`, `bind`, `symlink` and `delete` are its other
-  modes. An app also takes `-e TZ=`.
+  each start. Its default, `auto`, points it at the host's zone every time: a
+  link where the machine's zone database has that zone, otherwise a copy of the
+  host's file, which a package installed inside, such as tzdata, may replace (a
+  read-only root gets the host's file mounted over it). A zone set inside with
+  `timedatectl` does not survive a restart; `off` leaves the machine's own, and
+  `copy`, `bind`, `symlink` and `delete` are its other modes. An app also takes
+  `-e TZ=`.
 - `--log-driver DRIVER`: where the program's output goes. `local`, the
   default, sends it to journald's `nspawn` namespace, a journal of nspawn's
   own apart from the system's, so that a program that writes a lot never
@@ -564,8 +571,9 @@ back to the default with an empty string (`--hostname ""`), `--shm-size` with
 machine, the target of a volume or a secret, a `--tmpfs` or a `--device` path,
 must be plain: a `.` or `..` component is refused, since it would land elsewhere
 once mounted. A path the image
-declares as a volume with nothing mounted over it gets a note at start: nspawn
-has no anonymous volumes, so what is written there goes with the machine.
+declares as a volume with nothing mounted over it gets a note at start: no
+anonymous volume is made for it, so what is written there goes with the
+machine.
 
 ## GPUs and CDI devices
 
@@ -755,7 +763,9 @@ not:
   what was copied before it stays copied.
 
 A stopped overlay or flat machine can be copied into and out of; a stopped
-`mstack` machine cannot, since its tree only exists while it runs. Where
+`mstack` machine cannot, since its tree only exists while it runs. A stopped
+machine's volumes are mounted only while it runs, so a path at or below one of
+them, or a source that holds one, is refused until it starts. Where
 SELinux enforces, a host directory mounted with `-v` keeps its own label, which
 the service may not be allowed to write to;
 named volumes are nspawn's own and always work.

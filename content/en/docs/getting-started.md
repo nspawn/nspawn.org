@@ -221,7 +221,7 @@ keeps your credentials for that registry only; see
 - [Compose](/docs/compose/): docker compose files, run by `nspawn compose`.
 - [Building images](/docs/building/): Dockerfiles and mkosi with `build`, and
   `push`.
-- [The Docker API](/docs/docker-api/): the API nspawn serves to reverse proxies
-  and dashboards, and `auto-update`.
+- [The Docker API](/docs/docker-api/): the API nspawn serves to the `docker`
+  command, CI runners, reverse proxies and dashboards, and `auto-update`.
 - [Configuration](/docs/configuration/): `/etc/nspawn/nspawn.toml`, environment
   variables and flags.

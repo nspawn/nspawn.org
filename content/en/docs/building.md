@@ -20,9 +20,11 @@ as: the tag moves to the new build, so a script that builds and runs its image
 builds it again. A machine that has the name (one that ran, starts or runs), or
 an image of another reference, keeps it, and the build goes beside it with the
 same reference, into the image an earlier build of the tag put there or else
-under a free name (`app-2`), which a note says; `run`, `create`, compose and the
-Docker API find it by the reference, the image before the machine. An mkosi
-build given `--name` is refused instead when a machine or an image of another
+under a free name (`app-2`), which a note and the build's last line say. The
+name stays with the record that has it: `run` and `create` take the build by the
+name the build gave or by the reference (`app:latest`), and compose and the
+Docker API find it by the reference, the image before the machine. An
+mkosi build given `--name` is refused instead when a machine or an image of another
 reference has that name. `--force` replaces whatever has the name, a machine
 that ran included, and refuses one that runs. `-f` names the Dockerfile, so
 `--force` has no short form.

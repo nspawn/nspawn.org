@@ -90,8 +90,10 @@ variables and the volumes of the last run:
 - `--gpus` and `--device VENDOR/CLASS=NAME` hand it devices of the host's CDI
   specs; see [GPUs and CDI devices](#gpus-and-cdi-devices).
 
-Machines are started by name. A reference (`fedora:44`, `docker.io/x`) is
-refused with a hint to `pull` it or to `create` a machine from a local image.
+`start` takes a machine or an image by its name, or an image by its reference
+(see [Names](/docs/reference/#names)), which then runs as a machine itself; a
+reference of no image here (`fedora:44`, `docker.io/x`) is refused with a hint
+to `pull` it or to `create` a machine from a local image.
 Images that were not installed by nspawn, for example something created with
 `machinectl import-tar`, can be started too: they get the stock template's veth
 networking, and nspawn starts systemd-networkd on the host when the host has no
@@ -101,15 +103,19 @@ are refused for them.
 ## run
 
 ```shell
-sudo nspawn run [-d] [--rm] [-i] [-t] [OPTIONS] REFERENCE [COMMAND [ARGUMENT...]]
+sudo nspawn run [-d] [--rm] [-i] [-t] [OPTIONS] IMAGE [COMMAND [ARGUMENT...]]
 ```
 
 `run` makes a machine from an image and starts it: `pull`,
 or `create` from a local image with the same reference, then `start`, with the
-options of both. A name without a registry is looked for here under the
-configured registry, then as Docker Hub's (`app` as `docker.io/library/app`,
-the name of an image compose pulled from Docker Hub), and only then pulled from
-the configured registry.
+options of both. The image is looked for here as every command looks for one
+(see [Names](/docs/reference/#names)): a local image's name, or a reference
+under the configured registry, then as Docker Hub's (`app` as
+`docker.io/library/app`, the name of an image compose pulled from Docker Hub),
+and only then pulled from the configured registry. Where an image has the name
+the machine would get (`nspawn build -t app:1 .`, then `nspawn run app:1`), the
+machine goes beside it under the first free `NAME-N` (`app-1-2`), which a note
+says, and the image stays for the next run.
 What follows the image replaces an app's command; one that
 starts with a dash comes after `--`. Without `-d` it stays with the machine:
 

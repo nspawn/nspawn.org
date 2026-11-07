@@ -3,7 +3,7 @@ title: Command reference
 linkTitle: Reference
 weight: 10
 description: >-
-  Every command and option of nspawn 3.1.0.
+  Every command and option of nspawn 3.2.0.
 ---
 
 `nspawn --help` and `nspawn COMMAND --help` list the options; this page
@@ -21,6 +21,36 @@ whether the caller may take the action: the listings (`images ls`, `ps`,
 `org.nspawn.inspect`; everything else, `search` and `hub` included, asks for
 `org.nspawn.manage`. Both are for administrators by default, and root is never
 asked.
+
+## Names
+
+Every command that takes a machine or an image reads its name one way. A
+machine and an image pulled or built here are both records with a name of their
+own. A text that can be a machine's name (letters, digits, `.` and `-`) is a
+name: the record of that name or nothing, so that `rm -f app` run again never
+takes an image of `app:latest` for the machine that went. Any other text is the
+reference of an image, under the configured registry first and then as a Docker
+Hub name (`nginx:1.27` is `docker.io/library/nginx:1.27` when no image of the
+configured registry's is here), and names the image pulled or built for it, the
+last one made of several: `busybox:1.37`, `docker.io/library/busybox:1.37` and
+`busybox-1.37`, the name it was pulled under, are one image to `run`, `create`,
+`push`, `rm`, `images rm`, `inspect`, `images inspect`, `start`, `exec`,
+`logs`, `network connect` and the rest. The commands that take an image,
+`run`, `create`, `push`, `images rm` and `images inspect`, read a name nothing
+here has as a reference too: `nspawn run busybox` and `nspawn images rm
+busybox` take the image of `busybox:latest`, whatever its name. The MACHINE of
+`cp`'s MACHINE:PATH is a name.
+
+A reference never names a machine made from the image, which has a name of its
+own: `rm nginx:latest` removes the image and leaves the machines made from it,
+and `stop nginx:latest` stops none. Where the image is only read (`inspect`,
+`images inspect`, `push`), a machine made from it holds it too and is taken
+when no image of it is left. A text that names nothing here is refused by the
+command (a reference in full under `--registry`, when it is given): a reference
+of no image here is `no local image of REFERENCE` to
+`images rm`, `images inspect`, `push` and `run --pull never`, and `no machine or
+image of REFERENCE` to the commands that take a machine (`rm`, `inspect`,
+`stop`, `exec`, `logs` and the rest; `start` adds how to pull it).
 
 ## Global options
 
@@ -225,8 +255,8 @@ nspawn push IMAGE [--to REFERENCE]
 ```
 
 Uploads a local image to the hub or another registry, with the credentials
-stored for it. `IMAGE` is a local image name, or the reference it was pulled
-from or built as. `--to` pushes it under a different reference than the one
+stored for it. `IMAGE` is a local image's name or its reference (see
+[Names](#names)), the one it was pulled from or built as. `--to` pushes it under a different reference than the one
 recorded for the image. The destination needs a tag, not a digest. On a
 terminal a bar shows how far each blob got, as with `pull`.
 
@@ -256,10 +286,9 @@ nspawn images inspect [-f FORMAT] NAME|REFERENCE...
 
 Prints the records of images as a JSON array, the keys of
 [inspect](#inspect) without the ones it adds for a machine (state, start
-time, leader, health, published ports, exit code). A record's name is that
-record; anything else is a reference, and the image it means is the one the
-service resolves it to, as `run` and `create` do: `busybox:1.37` is the
-configured registry's `busybox:1.37` when there is one here,
+time, leader, health, published ports, exit code). Each name is read as every
+command reads one (see [Names](#names)): `busybox:1.37` is the configured
+registry's `busybox:1.37` when there is one here,
 `docker.io/library/busybox:1.37` otherwise; an image goes before a machine made
 from it, and a machine is shown when it alone holds the image. One that is not
 here is said as `no local image of NAME` after the others are printed, and the
@@ -282,24 +311,28 @@ repeatable; `-f` skips the question.
 ### images rm
 
 ```text
-nspawn images rm NAME...
+nspawn images rm NAME|REFERENCE...
 ```
 
-Removes local images and the layers and blobs nobody uses any more. Refuses
-the image of a running machine, or of one its restart policy is bringing back,
-and a name nothing is behind. Named volumes are kept. A pulled image is a machine too, so this is the same as
+Removes local images and the layers and blobs nobody uses any more, each by its
+name or its reference (see [Names](#names)): a reference removes the image of
+it and never a machine made from it, and one of no image here is refused with
+`no local image of REFERENCE`. Refuses the image of a running machine, or of
+one its restart policy is bringing back, and a name nothing is behind. Named volumes are kept. A pulled image is a machine too, so this is the same as
 [rm](#rm) without `--force`.
 
 ## rm
 
 ```text
-nspawn rm [-f] NAME...
+nspawn rm [-f] NAME|REFERENCE...
 ```
 
 Removes machines: the record, the tree, the unit files, the
-boot link a restart policy made, and the layers and blobs nobody else uses.
-Every name is tried; one that cannot be removed, or that nothing is behind
-(`no machine or image named NAME`), is reported at the end. Named volumes are
+boot link a restart policy made, and the layers and blobs nobody else uses. An
+image goes by its reference too, never a machine made from it (see
+[Names](#names)). Every name is tried; one that cannot be removed, or that
+nothing is behind (`no machine or image named NAME`, `no machine or image of
+REFERENCE`), is reported at the end. Named volumes are
 kept, and each one kept is mentioned.
 
 A machine that others depend on (`--depends-on`) or take their network from
@@ -336,7 +369,7 @@ each machine, its whole record included. `machines list` is an alias of
 ## inspect
 
 ```text
-nspawn inspect [-f FORMAT] NAME...
+nspawn inspect [-f FORMAT] NAME|REFERENCE...
 ```
 
 Prints everything nspawn knows about machines or images, running or not, as a
@@ -481,15 +514,18 @@ A path inside the machine, the target of `-v` or `--secret`, a `--tmpfs` or a
 ```text
 nspawn run [-d] [--rm] [-i] [-t] [-n NAME] [--pull missing|always|never]
            [--backend BACKEND] [--mode MODE] [-f] [--no-verify] [OPTIONS OF start] [--no-wait]
-           REFERENCE [COMMAND [ARGUMENT...]]
+           IMAGE [COMMAND [ARGUMENT...]]
 ```
 
 Makes a machine from an image and starts it: `pull` (or
 `create` from a local image with the same reference) followed by `start`, whose
-options are remembered as after `start`. A name without a registry is looked
-for here under the configured registry, then as Docker Hub's
-(`docker.io/library/NAME`), and pulled from the configured registry only when
-neither is there. What `pull` or `create` report goes to
+options are remembered as after `start`. The image is looked for here as every
+command looks for one (see [Names](#names)): a record's name (an image's, or a
+machine's, which gives the image it was made from, its layers and not what
+changed inside it, as `create` takes it), or a reference under the configured
+registry, then as Docker Hub's (`docker.io/library/NAME`), pulled from the
+configured registry only when neither is there. A pull of a record's name asks
+for the reference that record goes by. What `pull` or `create` report goes to
 standard error, so that standard output carries the program's output alone.
 
 Without `-d`, `run` stays attached. The machine's output
@@ -505,13 +541,13 @@ image shows its console until it powers off, and Ctrl-C powers it off.
 
 | Option | Meaning |
 | --- | --- |
-| `REFERENCE` | `[registry/]repository[:tag\|@digest]`, for example `nginx:1.27`. |
+| `IMAGE` | A local image's name, or a reference, `[registry/]repository[:tag\|@digest]`, for example `nginx:1.27`. |
 | `COMMAND [ARGUMENT...]` | App images: replace the image's cmd and follow its entrypoint; everything after the reference that is not an option of `run`, or everything after `--`, which a command that starts with a dash needs. |
 | `-d`, `--detach` | Start the machine in the background and return; `nspawn logs -f NAME` follows its output. |
 | `--rm` | Remove the machine once it ends, with or without `-d`; named volumes stay. An image the run had to pull is kept under the image's local name when that name is free, and without `--name` the machine gets a name of its own (`alpine-3-1f0c9a2e`). Refused with a restart policy. A run that fails to start leaves nothing behind. |
 | `-i`, `--interactive` | App images: give the program this standard input. Not with `-d`. |
 | `-t`, `--tty` | App images: give the program a terminal; Ctrl-C and resizes reach it through the terminal. Closing the terminal stops the machine. With `-i` on a booted image: wait for it to boot, open a root shell, and power it off when the shell ends, with the shell's exit code. Not with `-d`. |
-| `-n`, `--name NAME` | Name of the machine. Default: derived from the reference, for example `nginx-1.27`. A name that is taken is refused, with a pointer to `start`. |
+| `-n`, `--name NAME` | Name of the machine. Default: derived from the image's name or reference, for example `nginx-1.27`; where an image has that name, the one run makes the machine from (`nspawn build -t app:1 .`, then `nspawn run app:1`) or another, the machine goes beside it under the first free `NAME-N` (`app-1-2`), which a note says, and the image stays for the next run, whatever `--force`, `--pull` and `--mode` say; `stop`, `logs` and `rm` then take the machine as `NAME-N`. A machine that has the name, or an image that has a name given here, is refused unless `--force`, with a pointer to `start` for a machine. |
 | `--pull missing\|always\|never` | When to ask the registry. `missing`, the default: a local image with the same reference is made into the machine, as `create` does, and the registry is asked only when there is none. `always`: every time, for the image the tag names now. `never`: a local image or nothing. |
 | `--backend auto\|overlay\|flat\|mstack` | How to assemble the machine, as for `pull`. |
 | `--mode auto\|boot\|app` | As for `pull`; a mode other than `auto` always pulls. |
@@ -1077,11 +1113,11 @@ them, TAB completes names, asked from the service as it goes:
 
 | After | TAB offers |
 | --- | --- |
-| `stop`, `exec`, `kill`, `pause`, `unpause`, `top`, `shell`, `stats`, `port` | the running machines |
+| `stop`, `exec`, `kill`, `pause`, `unpause`, `top`, `shell`, `stats`, `port`, `logs -f` | the running machines |
 | `start` | the images that do not run |
 | `rm`, `inspect`, `generate`, `logs`, `restart`, `update`, `wait`, `auto-update`, `images rm`, `--depends-on`, the machine of `network connect` and `network disconnect` | every machine and image |
 | `create`, `push` | the local images |
-| `run` | the references of the local images |
+| `run` | the local images, by their names and their references |
 | `--network` | the networks, and `host`, `none` and `veth` |
 | `network rm`, `network inspect`, `network connect`, `network disconnect` | the networks |
 | `volume rm` | the volumes |

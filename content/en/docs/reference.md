@@ -3,7 +3,7 @@ title: Command reference
 linkTitle: Reference
 weight: 10
 description: >-
-  Every command and option of nspawn 3.0.0.
+  Every command and option of nspawn 3.1.0.
 ---
 
 `nspawn --help` and `nspawn COMMAND --help` list the options; this page
@@ -406,7 +406,7 @@ nspawn start NAME [--network NETWORK]... [--network-alias [NETWORK=]NAME]... [-p
              [--health-start-period DURATION] [--health-start-interval DURATION] [--no-healthcheck]
              [--hostname NAME] [-u USER[:GROUP]] [-w DIR] [--cap-add CAP]... [--cap-drop CAP]... [--privileged]
              [--read-only] [--tmpfs PATH[:OPTIONS]]... [--shm-size SIZE]
-             [--device HOST[:CONTAINER[:rwm]]]... [--dns IP]... [--dns-search DOMAIN]...
+             [--device HOST[:CONTAINER[:rwm]]]... [--device-cgroup-rule RULE]... [--dns IP]... [--dns-search DOMAIN]...
              [--add-host HOST:IP]... [--ulimit NAME=SOFT[:HARD]]... [--oom-score-adj N]
              [--stop-signal SIGNAL] [--stop-timeout SECONDS] [--timezone MODE] [--log-driver DRIVER] [--init] [--sysctl KEY=VALUE]...
              [--interface IFACE]... [--secret NAME[:TARGET[:MODE[:UID:GID]]]]...
@@ -452,7 +452,8 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--read-only` | Mount the machine's root read-only; `--read-only=false` takes it back. |
 | `--tmpfs PATH[:OPTIONS]` | An empty tmpfs at a path inside (`/tmp:size=64m,mode=0700`), 1777 when given without options. One on or below `/run`, a tmpfs of every machine already, is left out with a note. Repeatable; `none` forgets them. |
 | `--shm-size SIZE` | Size of `/dev/shm`: `64m`, `1g`; `0` for the default. |
-| `--device HOST[:CONTAINER[:rwm]]` | A device node of the host for the machine (`/dev/ttyUSB0:/dev/ttyUSB0:rw`), or a directory whose nodes are allowed one by one (`/dev/dri`), or a CDI name (`nvidia.com/gpu=all`) for the devices of the host's specs. Repeatable; `none` forgets them. |
+| `--device HOST[:CONTAINER[:rwm]]` | A device node of the host for the machine (`/dev/ttyUSB0:/dev/ttyUSB0:rw`), or a directory whose nodes are allowed one by one (`/dev/dri`), or a CDI name (`nvidia.com/gpu=all`) for the devices of the host's specs. An app given devices of the host runs without a user namespace. Repeatable; `none` forgets them. |
+| `--device-cgroup-rule RULE` | A rule of the machine's device cgroup, `TYPE MAJOR:MINOR PERMISSIONS` (`c`, `b` or `a` for both; a number or `*`; `r`, `w`, `m`): every node of a major (`c 189:* rwm`), those that appear while it runs included, by the device groups the host's `/proc/devices` names after it at each start, refused then for a major without one; or one node (`c 189:3 rw`). For a bind of the nodes' directory under `/dev`. Repeatable; `none` forgets them. |
 | `--gpus REQUEST` | GPUs of the host's CDI specs: `all`, a count, or `'"device=0,1"'`, for the NVIDIA spec's devices (the AMD one when only that is there); `driver=` says which. See [GPUs and CDI devices](/docs/machines/#gpus-and-cdi-devices). Repeatable; `none` forgets them. |
 | `--dns IP` | DNS server for the machine, instead of the host's. Repeatable; `none` forgets them. |
 | `--dns-search DOMAIN` | DNS search domain, in an app's `resolv.conf` and a booted machine's `.network` file; 254 characters at most, with a letter among its labels. A trailing dot is dropped and `.` stands for none. Repeatable; `none` forgets them. |

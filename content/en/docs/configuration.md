@@ -139,7 +139,8 @@ it is created or started; every one of them is remembered until it is changed:
   `--no-healthcheck`) on `start`, `run`, `create` and `update`, which changes
   it on a running machine at once.
 - `--hostname`, `-u`, `-w`, `--cap-add`, `--cap-drop`, `--privileged`,
-  `--read-only`, `--tmpfs`, `--shm-size`, `--device`, `--gpus`, `--dns`,
+  `--read-only`, `--tmpfs`, `--shm-size`, `--device`, `--device-cgroup-rule`,
+  `--gpus`, `--dns`,
   `--dns-search`, `--add-host`, `--ulimit`, `--oom-score-adj`, `--stop-signal`,
   `--stop-timeout`, `--timezone`, `--log-driver`, `--init`, `--sysctl`,
   `--secret`, `--interface` and `--depends-on` on `start`, `run` and `create`,

@@ -80,8 +80,8 @@ variables and the volumes of the last run:
 - `--health-cmd` and the other `--health-*` options give it a healthcheck, or
   replace the image's; see [Healthchecks](#healthchecks).
 - `--hostname`, `-u`, `-w`, `--cap-add`, `--cap-drop`, `--privileged`,
-  `--read-only`, `--tmpfs`, `--shm-size`, `--device`, `--dns`, `--dns-search`,
-  `--add-host`, `--ulimit`, `--oom-score-adj`, `--stop-signal`,
+  `--read-only`, `--tmpfs`, `--shm-size`, `--device`, `--device-cgroup-rule`,
+  `--dns`, `--dns-search`, `--add-host`, `--ulimit`, `--oom-score-adj`, `--stop-signal`,
   `--stop-timeout`, `--init` and `--sysctl` shape the machine further,
   `--log-driver` says where the program's output goes, and
   `--timezone` how systemd-nspawn sets
@@ -181,7 +181,9 @@ empty value for none, as Go's and Erlang's clients do; libsystemd's and Rust's
 refuse it.
 
 A user namespace cannot join a network namespace that belongs to the host, so an
-app on a bridge network runs without one (`PrivateUsers=no`). Capabilities,
+app on a bridge network runs without one (`PrivateUsers=no`), and so does an app
+given devices of the host on any network, since a device node cannot be idmapped.
+Capabilities,
 seccomp and the other namespaces still apply. Such an app gets the capabilities
 images need to run as written (CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL,
 MKNOD, NET_BIND_SERVICE, NET_RAW, SETFCAP, SETGID, SETPCAP, SETUID, SYS_CHROOT,
@@ -292,8 +294,11 @@ sudo nspawn start web -v /srv/www:/usr/share/nginx/html:ro -v pgdata:/var/lib/po
   `:` is refused.
 
 In machines that run with private users (every machine but an app on a bridge
-network or in another machine's network), the mount is idmapped, so a file root
-writes inside belongs to root on the host, and the other way round. On `mstack`
+network, in another machine's network or given devices of the host), the mount is
+idmapped, so a file root writes inside belongs to root on the host, and the other
+way round. A source on a file system that takes no idmapped mount (overlayfs,
+devtmpfs, proc, sysfs, NFS, CIFS, FUSE, tmpfs before Linux 6.3) goes in as it is,
+its owners unmapped inside. On `mstack`
 machines nspawn attaches
 the volumes from the host right after the machine's init starts, since
 systemd-nspawn cannot idmap binds under managed user namespaces; that is what
@@ -517,9 +522,23 @@ its unit:
 - `--device HOST[:CONTAINER][:PERMISSIONS]`: a device node of the host, bound
   into the machine and allowed to its cgroup (`r`, `w`, `m`, each once; `rwm` by
   default; `/dev/sda:r` is the node at the same place), or a directory such as `/dev/dri`, whose nodes are allowed one by
-  one. In a machine with private users the node keeps the host's
-  ownership. A CDI name such as `nvidia.com/gpu=all` takes the devices of a
-  spec instead; see [GPUs and CDI devices](#gpus-and-cdi-devices).
+  one. An app given devices of the host runs without a user namespace, so root
+  inside opens a node as its owner and mode allow; a booted machine keeps its
+  user namespace, where a node keeps the host's ownership. A CDI name such as
+  `nvidia.com/gpu=all` takes the devices of a spec instead; see
+  [GPUs and CDI devices](#gpus-and-cdi-devices).
+- `--device-cgroup-rule 'TYPE MAJOR:MINOR PERMISSIONS'` lets the machine's cgroup
+  open nodes by their numbers, the nodes that appear while it runs included:
+
+  ```shell
+  sudo nspawn run -d --name flasher -v /dev/bus/usb:/dev/bus/usb \
+      --device-cgroup-rule 'c 189:* rwm' --network none IMAGE
+  ```
+
+  reaches a USB device that comes and goes, as a flasher's does. A rule for
+  every minor of a major goes by the device groups the host's `/proc/devices`
+  names after it at each start (`char-usb_device` for 189), and is refused then
+  for a major without one; one node goes by its numbers (`c 189:3 rw`).
 - `--dns` and `--dns-search`: the DNS servers and search domains the machine
   gets instead of the host's resolvers, in an app's generated `resolv.conf` and
   in a booted machine's `.network` file. `--add-host HOST:IP` (or `HOST=IP`, for

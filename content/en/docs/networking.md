@@ -335,7 +335,8 @@ namespace.
 
 `--network none` sets `Private=yes`: the machine has `lo` and nothing else.
 Published ports do not apply, and an app that
-runs this way keeps its user namespace too.
+runs this way keeps its user namespace too, unless it is given devices of the
+host.
 
 ## container:NAME
 

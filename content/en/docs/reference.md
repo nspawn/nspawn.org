@@ -3,20 +3,20 @@ title: Command reference
 linkTitle: Reference
 weight: 10
 description: >-
-  Every command and option of nspawn 2.4.0.
+  Every command and option of nspawn 3.0.0.
 ---
 
 `nspawn --help` and `nspawn COMMAND --help` list the options; this page
 explains them in full. Errors are printed as `error: ...` on standard error and
 the exit status is 1 (2 for a command line clap refuses); `exec` and an attached
 `run` exit with the status of the program they ran, and `nspawn compose` prints
-its errors as docker compose does.
+its errors as they are, without `error:`.
 
 Every command but `daemon`, `completions` and the unit hooks is a call to the
 [service](/docs/overview/#the-service) on the system bus, which asks polkit
 whether the caller may take the action: the listings (`images ls`, `ps`,
-`machines ls`, `inspect`, `generate`, `top`, `stats`, `events`, `wait`,
-`port`, `system df`, `builder du`, `network ls`, `network inspect`,
+`machines ls`, `inspect`, `images inspect`, `info`, `generate`, `top`, `stats`,
+`events`, `wait`, `port`, `system df`, `builder du`, `network ls`, `network inspect`,
 `volume ls`, `secret ls`, `secret inspect`) ask for
 `org.nspawn.inspect`; everything else, `search` and `hub` included, asks for
 `org.nspawn.manage`. Both are for administrators by default, and root is never
@@ -125,7 +125,7 @@ size, speed and time left; in a pipe or a log only the lines are written.
 
 ```text
 nspawn create SOURCE NAME [--backend BACKEND] [--network NETWORK]... [--network-alias [NETWORK=]NAME]...
-              [-p [IP:][HOST:]CONTAINER[/udp]]... [--entrypoint PROGRAM] [-e VAR[=VALUE]]...
+              [-p [IP:][HOST:]CONTAINER[/udp]]... [-P] [--entrypoint PROGRAM] [-e VAR[=VALUE]]...
               [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]... [--restart POLICY] [-m SIZE] [--memory-swap SIZE]
               [--cpus N] [--pids-limit N] [HEALTHCHECK OPTIONS] [OTHER OPTIONS] [--interface IFACE]... [--secret SECRET]...
               [--depends-on NAME[:CONDITION][:optional]]... [--env-file FILE]... [--label-file FILE]...
@@ -144,8 +144,9 @@ the image's own name, as `run` does. The layers are shared with the source.
 | `--network NETWORK` | Networks of the new machine, as for [start](#start). Default: the source's kind; a network made with `network create` is not inherited, as ports and labels are not. |
 | `--network-alias [NETWORK=]NAME` | Other names of the machine on its networks, as for [start](#start). |
 | `-p`, `--publish [IP:][HOST:]CONTAINER[/udp]` | Ports to publish on the host, like `start -p`. Not inherited from the source. |
+| `-P`, `--publish-all` | Publish each port the image exposes, like `start -P`. |
 | `--entrypoint PROGRAM` | Replace the image's entrypoint and drop its cmd, so only the arguments given follow it; an empty string runs the arguments alone. An app left with nothing to run is refused with `no command specified`. App images only. |
-| `-e`, `--env VAR[=VALUE]` | Environment for the program, `VAR=value` or `VAR` copied from the calling shell. App images only. |
+| `-e`, `--env VAR[=VALUE]` | Environment for the program, `VAR=value` or `VAR` copied from the calling shell, left out when the shell does not have it. App images only. |
 | `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume; `z`, `Z`, a propagation, `nocopy` and `cached` are taken and do nothing. |
 | `-l`, `--label KEY=VALUE` | Label the machine, on top of the image's own labels. Not inherited from the source. |
 | `--restart`, `-m`, `--memory-swap`, `--cpus`, `--pids-limit` | Restart policy and limits, as for [start](#start). Not inherited from the source. |
@@ -179,7 +180,7 @@ an mkosi option, an mkosi build, which needs mkosi. See
 | --- | --- |
 | `DIRECTORY` | The build context: a directory with a Dockerfile, or an mkosi configuration. `-` reads a context tar, or a Dockerfile with no context, from standard input. Default: `.`. |
 | `-t`, `--tag TAG` | Reference for the result, for example `myapp:1` or `hub.example/team/app:2`. Repeatable for a Dockerfile; an mkosi build takes one, and needs it. A Dockerfile build without one fills the cache and prints the image ID. |
-| `--force` | Replace an existing image with the same name. |
+| `--force` | Replace whatever has the image's name, a machine that ran included. Without it, an image of the tag's reference that nothing ran from gives way to the build; a machine, or an image of another reference, keeps the name, and the build goes beside it with the same reference (into the image an earlier build of the tag put there, or else a free name such as `app-2`), which a note says. |
 | `--backend`, `--mode` | As for `pull`. |
 | `-f`, `--file PATH` | The Dockerfile. Default: `Dockerfile`, `dockerfile` or `Containerfile` in the context; `-` reads it from standard input. |
 | `--build-arg KEY[=VALUE]` | A build argument; `KEY` alone takes it from the environment. Repeatable. |
@@ -201,7 +202,7 @@ an mkosi option, an mkosi build, which needs mkosi. See
 | `--push` | Push the tags once built. |
 | `--load` | Taken: the image is local already. |
 | `--no-verify` | Pull the base images without verifying their signatures. |
-| `-n`, `--name NAME` | mkosi: local image name. Default: derived from the tag. |
+| `-n`, `--name NAME` | mkosi: local image name. Default: derived from the tag. A machine or an image of another reference that has it is refused without `--force`. |
 | `-d`, `--distribution DISTRIBUTION` | mkosi: distribution to build (`mkosi --distribution`). |
 | `-r`, `--release RELEASE` | mkosi: release to build (`mkosi --release`). |
 | `--profile PROFILE` | mkosi: profile to enable; repeatable. |
@@ -231,7 +232,8 @@ terminal a bar shows how far each blob got, as with `pull`.
 
 ## images
 
-Manage local images; without a subcommand, list them.
+Manage local images; without a subcommand, list them. `image` is the same
+group: `nspawn image ls`, `image rm`, `image prune` and `image inspect`.
 
 ### images ls
 
@@ -245,6 +247,24 @@ nspawn installed the backend, origin (`pull`, `build` or `create`), source
 reference, size and whether the image is read-only. `--json` prints the list as
 the service returns it. `images list` is an alias, and `images` without a
 subcommand prints the same list.
+
+### images inspect
+
+```text
+nspawn images inspect [-f FORMAT] NAME|REFERENCE...
+```
+
+Prints the records of images as a JSON array, the keys of
+[inspect](#inspect) without the ones it adds for a machine (state, start
+time, leader, health, published ports, exit code). A record's name is that
+record; anything else is a reference, and the image it means is the one the
+service resolves it to, as `run` and `create` do: `busybox:1.37` is the
+configured registry's `busybox:1.37` when there is one here,
+`docker.io/library/busybox:1.37` otherwise; an image goes before a machine made
+from it, and a machine is shown when it alone holds the image. One that is not
+here is said as `no local image of NAME` after the others are printed, and the
+command exits with 1. `-f`, `--format FORMAT` prints a Go template over each
+record, as for [inspect](#inspect).
 
 ### images prune
 
@@ -334,6 +354,23 @@ line each (`{{.state}}`, `{{json .labels}}`, `{{index .addresses "front"}}`),
 with the functions `json`, `join`, `split`, `lower`, `upper`, `title`, `pad`
 and `truncate`; an empty one prints the JSON.
 
+## info
+
+```text
+nspawn info [-f FORMAT]
+```
+
+Prints the command's version, then what the service answers: its version, its
+machines by state (a record pulled or built that never ran is an image, not a
+machine), its images, the registry, the default storage backend
+(`auto (overlay)` says what `auto` picks on this host), the default log driver,
+where machines and state are kept, systemd's version and the host's kernel, OS,
+architecture, CPUs, memory, name and machine ID. Exits with 1 and the error when
+the service does not answer, which is how a script checks that nspawn is
+usable. `-f json` (`--format json`) prints the answer on one line, and
+`-f FORMAT` a Go template over its keys (`{{.version}}`,
+`{{.machines.running}}`).
+
 ## generate
 
 ```text
@@ -362,7 +399,7 @@ comes along. See
 ## start
 
 ```text
-nspawn start NAME [--network NETWORK]... [--network-alias [NETWORK=]NAME]... [-p [IP:][HOST:]CONTAINER[/udp]]...
+nspawn start NAME [--network NETWORK]... [--network-alias [NETWORK=]NAME]... [-p [IP:][HOST:]CONTAINER[/udp]]... [-P]
              [--entrypoint PROGRAM] [-e VAR[=VALUE]]... [-v SOURCE:TARGET[:ro]]... [-l KEY=VALUE]...
              [--restart POLICY] [-m SIZE] [--memory-swap SIZE] [--cpus N] [--pids-limit N]
              [--health-cmd COMMAND] [--health-interval DURATION] [--health-timeout DURATION] [--health-retries N]
@@ -385,10 +422,11 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--network NETWORK` | Network of the machine: `bridge`, the default network (the default); the name of a network made with [network create](#network-create); `veth`, a veth pair configured by systemd-networkd on the host (booted images only); `host`, the host's own network; `none`, no interface but `lo`; or `container:NAME`, the network namespace of that running machine (app images only; see [container:NAME](/docs/networking/#containername)). Repeatable for several bridge networks, the first one primary: its address is where published ports lead and its gateway the default route, unless it is internal, in which case the first network that is not has the route. `veth`, `host`, `none` and `container:NAME` go alone. |
 | `--network-alias [NETWORK=]NAME` | Another name for the machine on its primary network, or on `NETWORK`: every member of that network resolves it. Repeatable; `none` forgets them. |
 | `-p`, `--publish [IP:][HOST:]CONTAINER[/udp]` | Publish a port on the host: on every IPv4 and IPv6 address of the host, or on `IP` alone (`127.0.0.1:8080:80`, `[::1]:8080:80`); `0.0.0.0` is every IPv4 address, `[::]` every IPv6 one. No host port (`80`, `:80`) or 0 takes a free one of the host, kept by the machine; a host range with one port of the machine (`8000-8010:80`) the first free one in it. `8000-8010:8000-8010` publishes a range, one mapping per port. Also `published=HOST,target=CONTAINER[,protocol=udp][,host_ip=IP]`, `target` the only one required. Repeatable; `none` forgets them all. |
+| `-P`, `--publish-all` | Publish each TCP and UDP port the image exposes (`EXPOSE`) that no `-p` publishes to a free port of the host. `--dns-option` and `--expose` are taken with a warning that they are ignored. |
 | `--ip [NETWORK=]IP` | A fixed IPv4 address on the primary network, or on `NETWORK`: one made with [network create](#network-create), inside its subnet and nobody else's there. Repeatable, once per network. |
 | `--entrypoint PROGRAM` | Replace the image's entrypoint and drop its cmd, so only the arguments given follow it; an empty string runs the arguments alone. An app left with nothing to run is refused with `no command specified`. App images only. |
-| `-e`, `--env VAR[=VALUE]` | Environment for the program, `VAR=value` or `VAR` copied from the calling shell. Repeatable; `none` forgets them. App images only. |
-| `--env-file FILE` | Variables from a file of `KEY=VALUE` lines (no quoting, no expansion, `#` comments, a `KEY` alone copied from the calling shell), before the `-e` that follow and win. Repeatable. |
+| `-e`, `--env VAR[=VALUE]` | Environment for the program, `VAR=value` or `VAR` copied from the calling shell, left out when the shell does not have it, so `-e DEBUG` passes an optional setting on only where it is set. Repeatable; `none` forgets them, and variables that are all left out keep the remembered ones. App images only. |
+| `--env-file FILE` | Variables from a file of `KEY=VALUE` lines (no quoting, no expansion, `#` comments, a `KEY` alone copied from the calling shell or left out when it is not set there), before the `-e` that follow and win. Repeatable. |
 | `-v`, `--volume SOURCE:TARGET[:ro]` | Mount a host directory or a named volume (`z`, `Z`, a propagation, `nocopy` and `cached` are taken and do nothing), made on first use (or made ahead and still empty) with what the image has at `TARGET`, owner and files included. Repeatable; `none` forgets them. |
 | `--mount type=bind\|volume\|tmpfs,source=...,target=...` | The long form of `-v` and `--tmpfs`: `readonly`, `tmpfs-size`, `tmpfs-mode`; a volume needs its name, and image, cluster or npipe mounts, `volume-subpath` and driver options are refused. Repeatable. |
 | `-l`, `--label KEY=VALUE` | Label the machine, on top of the image's own labels. Repeatable; `none` forgets them. |
@@ -423,7 +461,7 @@ Boots an image as a machine. Every option is remembered for the next start.
 | `--oom-score-adj N` | OOM score adjustment of the machine, -1000 to 1000. |
 | `--stop-signal SIGNAL` | Signal `stop` sends the program, instead of the image's (`SIGTERM`). |
 | `--stop-timeout SECONDS` | Seconds `stop` waits after the signal before SIGKILL, unless `-t` says otherwise; `-1` waits for as long as the program takes. Default: 10. |
-| `--timezone MODE` | How systemd-nspawn sets the machine's `/etc/localtime` at each start, its `Timezone=`: `auto` (the default, the host's zone), `off` (left alone, so a zone set inside stays), `copy`, `bind`, `symlink` or `delete`. `auto` forgets the setting. |
+| `--timezone MODE` | How systemd-nspawn sets the machine's `/etc/localtime` at each start, its `Timezone=`: `auto` (the default, the host's zone: a link where the machine's zone database has it, otherwise a copy of the host's file, which a package installed inside may replace; a read-only root gets the host's file mounted over it), `off` (left alone, so a zone set inside stays), `copy`, `bind`, `symlink` or `delete`. `auto` forgets the setting. |
 | `--log-driver DRIVER` | Where the program's output goes: `local` (the default: journald's `nspawn` namespace, a journal of nspawn's own apart from the system's, capped at 1 GiB, which `logs` and an attached `run` read), `journal` (the system's journal) or `none` (dropped; `logs` refuses the machine, an attached `run` of an app still shows the output straight from the program, and a booted machine runs with `-d`). |
 | `--init`, `--init=false` | The program under systemd-nspawn's stub init, which reaps orphans and turns a poweroff into SIGTERM, or as PID 1 of the machine. Without either, PID 1 for an image that carries s6-overlay, the stub init otherwise. App images only. |
 | `--sysctl KEY=VALUE` | A `net.*` sysctl for an app machine's network namespace, after the two it gets by default, `net.ipv4.ping_group_range=0 2147483647` and `net.ipv4.ip_unprivileged_port_start=0`, so that a user other than root can ping without raw sockets and bind a port below 1024. Repeatable; `none` forgets them. |
@@ -582,7 +620,7 @@ status. A paused machine is refused at once.
 | Option | Meaning |
 | --- | --- |
 | `-u`, `--user USER[:GROUP]` | User inside the machine, a name or a number of its passwd file, with a group of its group file after a colon (then the only group; otherwise the user's supplementary groups come along) and the home of the passwd entry. Default: the machine's user, its `--user` or else its image's `USER`; root on a booted machine. |
-| `-e`, `--env VAR[=VALUE]` | A variable for the command, `VAR=value` or `VAR` copied from the calling shell. Repeatable. |
+| `-e`, `--env VAR[=VALUE]` | A variable for the command, `VAR=value` or `VAR` copied from the calling shell, left out when the shell does not have it. Repeatable. |
 | `-w`, `--workdir DIR` | Working directory of the command, instead of the machine's. |
 | `-T`, `--no-tty` | No terminal, even from one: pipes, as in a script. Without `-t` or `-T`, a terminal only when standard input and output are one, so redirected output is byte-exact. |
 | `-t`, `--tty` | A terminal for the command, even without one here. |
@@ -849,22 +887,34 @@ Named volumes, the directories `-v NAME:/path` makes under
 ### volume ls
 
 ```text
-nspawn volume ls [--json]
+nspawn volume ls [--json] [--filter label=KEY[=VALUE]]...
 ```
 
 Lists the named volumes with the machines whose records mount them, when each
-was made and its path. `--json` prints the list as the service returns it.
-`volume list` is an alias.
+was made and its path. `--filter label=KEY` or `label=KEY=VALUE` lists only
+those with the label, every filter holding. `--json` prints the list as the
+service returns it. `volume list` is an alias.
 
 ### volume create
 
 ```text
-nspawn volume create NAME
+nspawn volume create NAME [--label KEY=VALUE]...
 ```
 
 Makes a volume ahead of its first use (`start` makes it otherwise): a
-directory owned by root, mode 0755. One that exists already is fine. Names have
-letters, digits, `_`, `.` and `-`, not starting with a dot.
+directory owned by root, mode 0755. One that exists already is fine, and keeps
+its own labels. Names have letters, digits, `_`, `.` and `-`, not starting with
+a dot. `--label` labels it; labels and the creation time are kept beside the
+volume's directory, never inside it.
+
+### volume inspect
+
+```text
+nspawn volume inspect NAME...
+```
+
+What nspawn keeps about the volumes, as JSON: their path, the machines that
+mount them, when each was made and their labels.
 
 ### volume rm
 
@@ -960,8 +1010,9 @@ no machine uses and the build cache no image shares, after asking
 unless `-f` is given; `-a` also removes
 every image no machine was made from and the whole build cache. A `label=`
 filter leaves the build cache alone.
-`--volumes` asks for anonymous volumes too, which nspawn has none of: it is
-accepted with a note. `--filter` takes `label=KEY`, `label=KEY=VALUE` and
+`--volumes` also removes the volumes no machine uses that were made without a
+name, which only the Docker API makes, and counts what they held in the space
+reclaimed; it takes no `until=` filter. `--filter` takes `label=KEY`, `label=KEY=VALUE` and
 `until=DURATION` or unix seconds.
 
 ## builder
@@ -1010,7 +1061,7 @@ not a command to type; `--install` is.
 
 | Option | Meaning |
 | --- | --- |
-| `--install` | Write the bus policy, the polkit actions, the activation file and the unit that let the bus start this binary on demand, the units of the Docker API socket and of auto-update (its timer disabled), and the journald configuration of nspawn's log namespace, then return. A package installs the same files. |
+| `--install` | Write the bus policy, the polkit actions, the activation file and the unit that let the bus start this binary on demand, the units of the Docker API sockets, a machine's and the host's (the host's not enabled), and of auto-update (its timer disabled), and the journald configuration of nspawn's log namespace, then return. A package installs the same files. |
 | `--idle-exit SECONDS` | Exit after this long without a call or a running job. Default: 60; `0` keeps serving. |
 
 ## completions
@@ -1056,5 +1107,6 @@ the `--help` texts.
 with `--depends-on`, and `nspawn health-run NAME` is what
 `nspawn-health-NAME.service` runs to probe a machine's healthcheck. `nspawn
 attach-exec NAME -- ...` is the drop-in's `ExecStart=`, `nspawn api-serve NAME`
-is what `nspawn-api@NAME.service` runs, and `nspawn remove-after-exit` removes a
+is what `nspawn-api@NAME.service` runs and `nspawn api-serve` what
+`nspawn-api.service` runs, and `nspawn remove-after-exit` removes a
 `run --rm` machine. They are not meant to be typed and are hidden from `--help`.

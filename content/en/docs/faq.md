@@ -27,10 +27,10 @@ No. nspawn's machines are systemd-nspawn containers managed by systemd: they are
 `systemd-nspawn@NAME.service` units,
 appear in `machinectl list`, log to journald and boot a full init when the
 image has one. nspawn's own service holds none of them open. docker compose
-files run with `nspawn compose`, Dockerfiles build with `nspawn build`, and a
-machine that mounts `/var/run/docker.sock` gets a Docker API that reverse
-proxies and
-dashboards read, but there is no orchestration across hosts.
+files run with `nspawn compose`, Dockerfiles build with `nspawn build`, and the
+Docker Engine API, on a socket of the host and in machines that mount
+`/var/run/docker.sock`, serves the `docker` command, CI runners, reverse proxies
+and dashboards, but there is no orchestration across hosts.
 
 ## Can I run images from Docker Hub?
 

@@ -52,11 +52,14 @@ machines:
   directory with a `mkosi.conf`, and imports the result
   as a local image; `push` uploads an image to a registry, skipping the layers
   that are already there. See [Building](/docs/building/).
-- A machine that mounts `/var/run/docker.sock` gets a Docker API there that
-  changes nothing but sends `kill`, so
+- The Docker Engine API, on a socket of the host (`nspawn-api.socket`) and in
+  each machine that mounts `/var/run/docker.sock`: the `docker` command, GitLab
+  Runner's docker executor and other clients make, run, attach to, exec in and
+  copy to and from containers, pull images and make volumes and networks, and
   reverse proxies that route by labels and dashboards find the machines as
-  containers, and `auto-update` moves labelled machines to the image their tag
-  names now. See [The Docker API](/docs/docker-api/).
+  containers. The server is a client of the service, as the command line is.
+  `auto-update` moves labelled machines to the image their tag names now. See
+  [The Docker API](/docs/docker-api/).
 - `generate` prints the commands that make the same machines on another host,
   every flag they keep included.
 
@@ -65,8 +68,9 @@ line is one of its clients, the way `machinectl` and `systemctl` are clients of
 machined and systemd. The service is started by the bus when a command arrives
 and exits when it has been idle for a minute. Between commands only these run:
 the healthcheck of a machine that has one (`nspawn-health-NAME.service`), the
-Docker API of a machine that asked for one, which systemd starts when a client
-connects, and the daily `auto-update` timer once you enable it. See
+Docker API of a machine that asked for one and the host's once you enable it,
+which systemd starts when a client connects, and the daily `auto-update` timer
+once you enable it. See
 [The service](#the-service).
 
 It is one binary written in Rust. Its own state lives under `/var/lib/nspawn`,
@@ -82,8 +86,11 @@ create, rm, images rm and prune, cp, volume rm and prune, secret rm, network rm,
 connect, disconnect and prune, builder prune, auto-update) come back as job
 objects that report their output and result, and `exec`, `logs`, `events` and an
 attached `run` hand their streams or terminal over the bus, with a process object
-that says how they ended. Scripts that would rather not speak D-Bus get the same
-dictionaries as JSON from `inspect` and `--json` on the listings.
+that says how they ended. A method or job that fails says what failed with a
+name under `org.nspawn.Error` (`NoSuchMachine`, `InUse`, `Invalid` and the rest)
+and the message the command line prints. Scripts that would rather not speak
+D-Bus get the same dictionaries as JSON from `inspect` and `--json` on the
+listings.
 
 Who may call what is polkit's answer, the way it is for machined and systemd.
 The bus lets everyone in and the service asks polkit about the caller, under
@@ -91,14 +98,16 @@ two actions:
 
 | Action | Methods |
 | --- | --- |
-| `org.nspawn.inspect` | The ones that only read: `images ls`, `ps` and `machines ls`, `inspect`, `generate`, `top`, `stats`, `events`, `wait`, `port`, `system df`, `builder du`, `network ls` and `network inspect`, `volume ls`, `secret ls` and `secret inspect`. |
+| `org.nspawn.inspect` | The ones that only read: `images ls` and `images inspect`, `ps` and `machines ls`, `inspect`, `info`, `generate`, `top`, `stats`, `events`, `wait`, `port`, `system df`, `builder du`, `network ls` and `network inspect`, `volume ls` and `volume inspect`, `secret ls` and `secret inspect`. |
 | `org.nspawn.manage` | Everything else: pulling, building, starting, stopping, restarting, pausing, removing, `exec`, `shell`, `cp`, `logs`, volumes, secrets, the registry commands and the credentials. |
 
 Both are for administrators by default, so `sudo nspawn ...` works, and a
 desktop session (or a terminal where you started `pkttyagent`) is
 asked for a password instead. Root is never asked, which is also how the
 service keeps working where polkit is not installed: there, nobody but root can
-call it. One interface asks nothing: `org.nspawn.Names` hands out the names of
+call it. The host's socket of the [Docker API](/docs/docker-api/) asks polkit the
+same two actions about each of its clients, never letting it prompt. One
+interface asks nothing: `org.nspawn.Names` hands out the names of
 machines, images, networks and volumes, and nothing else about them, to any
 user.
 

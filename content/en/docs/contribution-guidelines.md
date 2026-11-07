@@ -73,17 +73,17 @@ sending it.
 ## Working on this site
 
 The site is built with [Hugo](https://gohugo.io/) and the
-[Docsy](https://www.docsy.dev/) theme. With Docker installed, a live preview
+[Docsy](https://www.docsy.dev/) theme. With nspawn installed, a live preview
 needs nothing else:
 
 ```shell
 git clone https://github.com/nspawn/nspawn.org.git
 cd nspawn.org
-docker compose up
+sudo nspawn compose up
 ```
 
-Then open <http://localhost:1313>. The container runs as uid and gid 1000; the
+Then open <http://localhost:1313>. The machine runs as uid and gid 1000; the
 README of the repository explains how to pass yours if they differ. Without
-Docker, install Node.js, Go and git and run `npm run install:safe` followed by
+nspawn, install Node.js, Go and git and run `npm run install:safe` followed by
 `npm run serve`. The pages are Markdown files under `content/en/`; every
 documentation page has an "Edit this page" link that opens the file on GitHub.

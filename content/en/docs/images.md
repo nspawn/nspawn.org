@@ -28,18 +28,22 @@ An image reference has the form `[registry/]repository[:tag|@digest]`:
 - A digest is a sha256 one; sha384 and sha512 digests are refused, in a
   Dockerfile's `FROM` too.
 
-`run` and `create` look for a local image of a name without a registry under
-the configured registry first, then as Docker Hub's (`app` as
+`run` and `create` take a local image by its local name, and look for one of a
+reference, a name without a registry under the configured registry first, then
+as Docker Hub's (`app` as
 `docker.io/library/app`, the name of an image compose pulled from Docker Hub),
 and pull from the configured registry only when neither is there. Given by
 reference, the source is the most recently pulled image of that reference that
 never ran as a machine.
 
-The **local name** of an image, the one `start`, `stop`, `exec` and friends
-use, is derived from the reference (`fedora:44` becomes `fedora-44`) unless
-`--name` says otherwise. It has to be a valid machine name, which is a host
-name: letters, digits, `.` and `-`, at most 64 characters, with no part between
-dots empty or starting or ending with `-`.
+The **local name** of an image is derived from the reference (`fedora:44`
+becomes `fedora-44`) unless `--name` says otherwise. It has to be a valid
+machine name, which is a host name: letters, digits, `.` and `-`, at most 64
+characters, with no part between dots empty or starting or ending with `-`.
+Every command takes an image by its local name or its reference alike
+(`nspawn images rm fedora:44` and `nspawn images rm fedora-44` remove the same
+image), and a reference never names a machine made from the image; the
+[reference](/docs/reference/#names) has the rule.
 
 ## The hub
 
@@ -302,7 +306,7 @@ create (`old-arch` above, with `-` in the nspawn columns). `ORIGIN` is `pull`,
 `build` or `create`.
 
 ```shell
-sudo nspawn images rm NAME...
+sudo nspawn images rm NAME|REFERENCE...
 ```
 
 `images rm` refuses to remove the image of a running machine, or of one its

@@ -3,13 +3,13 @@ title: The Docker API
 weight: 8
 description: >-
   The Docker Engine API on a socket of the host and in each machine that mounts
-  docker's socket, for the docker command, CI runners, reverse proxies and
+  /var/run/docker.sock, for the docker command, CI runners, reverse proxies and
   dashboards, and auto-update of the machines whose tag points to a newer image.
 ---
 
 nspawn serves the Docker Engine API, 1.51 and any version down to 1.24 a client
-asks for, on a socket of the host and in each machine that mounts docker's
-socket. Clients make, start, attach to, exec in, copy files to and from and
+asks for, on a socket of the host and in each machine that mounts
+`/var/run/docker.sock`. Clients make, start, attach to, exec in, copy files to and from and
 remove containers, pull and remove images, and make, join and remove volumes and
 networks. The server is a client of the [service](/docs/overview/#the-service),
 as the command line is: every change it makes is a method of `org.nspawn`, under
@@ -76,12 +76,12 @@ $ docker run --rm -v data:/data busybox:1.37 cat /data/page
 hello
 ```
 
-On a host without docker, clients that only look at `/run/docker.sock` or
-`/var/run/docker.sock` find the socket there with a drop-in:
+Where nothing else on the host has `/run/docker.sock`, clients that only look
+there or at `/var/run/docker.sock` find the socket with a drop-in:
 
 ```shell
 sudo mkdir -p /etc/systemd/system/nspawn-api.socket.d
-printf '[Socket]\nSymlinks=/run/docker.sock\n' | sudo tee /etc/systemd/system/nspawn-api.socket.d/docker.conf
+printf '[Socket]\nSymlinks=/run/docker.sock\n' | sudo tee /etc/systemd/system/nspawn-api.socket.d/symlink.conf
 sudo systemctl daemon-reload && sudo systemctl restart nspawn-api.socket
 ```
 
@@ -138,12 +138,12 @@ container's name in the API, and its machine gets one made of it (`reaper-1-` an
 eight hex digits), which `nspawn ps` shows. A network keeps the name the API gave
 it the same way.
 
-## docker's socket in a machine
+## The socket in a machine
 
 A machine that mounts `/var/run/docker.sock`, `/run/docker.sock` or
-`/run/nspawn/api.sock` from the host gets nspawn's Docker API there instead of the
-host's docker, with `-v /var/run/docker.sock:/var/run/docker.sock` or compose's
-`use_api_socket`. Mounted read-write, it takes every request the API serves:
+`/run/nspawn/api.sock` from the host gets nspawn's Docker API there, whatever the
+host has at that path, with `-v /var/run/docker.sock:/var/run/docker.sock` or
+compose's `use_api_socket`. Mounted read-write, it takes every request the API serves:
 
 ```text
 $ sudo nspawn run --rm -v /var/run/docker.sock:/var/run/docker.sock \

@@ -238,7 +238,10 @@ say otherwise:
   `--image-command` forgets them and runs the image's own entrypoint and cmd
   again.
 - `-e VAR=value` adds a variable on top of the image's, and `-e VAR` copies it
-  from the shell that runs nspawn. `--env-file FILE` reads `KEY=VALUE` lines
+  from the shell that runs nspawn, or is left out when the shell does not have
+  it, so `-e DEBUG` passes an optional setting on only where it is set; a
+  `start` whose variables are all left out keeps the ones the machine
+  remembers. `--env-file FILE` reads `KEY=VALUE` lines
   (no quoting, no expansion, `#` comments), before the `-e`
   that follow. The later value of a variable wins, `-e none` forgets them all,
   and `exec` sees the same environment as the program. Any name but an empty

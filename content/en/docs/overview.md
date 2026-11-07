@@ -98,7 +98,7 @@ two actions:
 
 | Action | Methods |
 | --- | --- |
-| `org.nspawn.inspect` | The ones that only read: `images ls`, `ps` and `machines ls`, `inspect`, `generate`, `top`, `stats`, `events`, `wait`, `port`, `system df`, `builder du`, `network ls` and `network inspect`, `volume ls` and `volume inspect`, `secret ls` and `secret inspect`. |
+| `org.nspawn.inspect` | The ones that only read: `images ls` and `images inspect`, `ps` and `machines ls`, `inspect`, `info`, `generate`, `top`, `stats`, `events`, `wait`, `port`, `system df`, `builder du`, `network ls` and `network inspect`, `volume ls` and `volume inspect`, `secret ls` and `secret inspect`. |
 | `org.nspawn.manage` | Everything else: pulling, building, starting, stopping, restarting, pausing, removing, `exec`, `shell`, `cp`, `logs`, volumes, secrets, the registry commands and the credentials. |
 
 Both are for administrators by default, so `sudo nspawn ...` works, and a

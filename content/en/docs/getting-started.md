@@ -36,7 +36,7 @@ description: >-
 
 ### Debian and Ubuntu
 
-Debian 13 or later and Ubuntu 24.04 or later, on amd64:
+Debian 13 or later and Ubuntu 24.04 or later, on amd64 or arm64:
 
 ```shell
 sudo curl -fsSLo /etc/apt/sources.list.d/nspawn.sources https://apt.nspawn.org/nspawn.sources
@@ -46,7 +46,7 @@ sudo apt install nspawn
 
 ### Fedora
 
-Fedora 44 or later, on x86_64:
+Fedora 44 or later, on x86_64 or aarch64:
 
 ```shell
 sudo curl -fsSLo /etc/yum.repos.d/nspawn.repo https://rpm.nspawn.org/nspawn.repo
@@ -68,7 +68,8 @@ builds both.
 
 apt.nspawn.org and rpm.nspawn.org keep the last five releases:
 `sudo apt install nspawn=VERSION-1` or `sudo dnf downgrade nspawn-VERSION`
-installs an earlier one. Both are signed with this Ed25519 key:
+installs an earlier one. The arm64 and aarch64 packages are experimental, and start
+with 3.2.1. Both are signed with this Ed25519 key:
 
 ```text
 1294612AB2DC4AE2F6118240FC5E133778B4B3B3
@@ -77,7 +78,8 @@ installs an earlier one. Both are signed with this Ed25519 key:
 ### The binary
 
 Every [release](https://github.com/nspawn/nspawn/releases) also has the plain
-binary, in `nspawn-VERSION-x86_64-linux.tar.gz`, with a `SHA256SUMS`. To build
+binary, in `nspawn-VERSION-x86_64-linux.tar.gz` and
+`nspawn-VERSION-aarch64-linux.tar.gz`, with a `SHA256SUMS`. To build
 it instead you need Rust 1.88 or newer:
 
 ```shell

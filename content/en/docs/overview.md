@@ -52,10 +52,15 @@ machines:
   directory with a `mkosi.conf`, and imports the result
   as a local image; `push` uploads an image to a registry, skipping the layers
   that are already there. See [Building](/docs/building/).
+- `save` and `load` carry images as a tar archive, without a registry; `commit`
+  makes an image of what a machine changed, `export` writes a machine's files as
+  a tar and `import` makes an image of one. See
+  [Images without a registry](/docs/images/#images-without-a-registry).
 - The Docker Engine API, on a socket of the host (`nspawn-api.socket`) and in
   each machine that mounts `/var/run/docker.sock`: the `docker` command, GitLab
   Runner's docker executor and other clients make, run, attach to, exec in and
-  copy to and from containers, pull images and make volumes and networks, and
+  copy to and from, commit and export containers, pull, save, load and import
+  images, and make volumes and networks, and
   reverse proxies that route by labels and dashboards find the machines as
   containers. The server is a client of the service, as the command line is.
   `auto-update` moves labelled machines to the image their tag names now. See
@@ -82,7 +87,7 @@ live in one nftables table, `ip nspawn`.
 
 Every command is a method call on `org.nspawn.Manager`: images, machines, the
 network and credentials are methods. The long operations (pull, push, build,
-create, rm, images rm and prune, cp, volume rm and prune, secret rm, network rm,
+save, load, import, commit, export, create, rm, images rm and prune, cp, volume rm and prune, secret rm, network rm,
 connect, disconnect and prune, builder prune, auto-update) come back as job
 objects that report their output and result, and `exec`, `logs`, `events` and an
 attached `run` hand their streams or terminal over the bus, with a process object

@@ -129,6 +129,8 @@ starts with a dash comes after `--`. Without `-d` it stays with the machine:
   A signal from elsewhere (a crash, a kill from inside the machine, Ctrl-C with
   `-t`) gives 255 there. A program that is PID 1 ends with 1 whatever signal
   killed it but `kill`'s SIGKILL (137), which is how systemd-nspawn ends then.
+  `run` exits once the machine is down, the hooks of its unit after the end
+  done, so `ps` and `inspect` show it ended right after.
   Ctrl-C, SIGTERM, SIGHUP and SIGQUIT go to the program; a third Ctrl-C within a
   second leaves the machine running and returns.
 - `-i` gives the program this standard input, `-t` a terminal; closing that
@@ -791,7 +793,9 @@ not:
   what was copied before it stays copied.
 
 A stopped overlay or flat machine can be copied into and out of; a stopped
-`mstack` machine cannot, since its tree only exists while it runs. A stopped
+`mstack` machine cannot, since its tree only exists while it runs, and a
+machine systemd is starting (`machinectl start`, the dependency of another
+machine) is refused until it runs. A stopped
 machine's volumes are mounted only while it runs, so a path at or below one of
 them, or a source that holds one, is refused until it starts. Where
 SELinux enforces, a host directory mounted with `-v` keeps its own label, which
@@ -984,8 +988,9 @@ $ sudo nspawn port web
 80/tcp -> [::]:8080
 ```
 
-`wait NAME...` waits for machines to stop and prints each one's exit code, and
-`port NAME [PORT[/PROTO]]` the ports a running machine publishes.
+`wait NAME...` waits for machines to stop and prints each one's exit code once
+the machine is down, as `run` exits, and `port NAME [PORT[/PROTO]]` the ports a
+running machine publishes.
 
 ## rm
 
@@ -1038,8 +1043,10 @@ without flags of its own is pulled again instead of run, unless another
 machine takes its network, which needs it running. What a flag cannot carry is
 said in comments at the top: a secret is encrypted for this host, so
 `nspawn secret create` it there first; a host directory a machine mounts has
-to exist there; an image built here has to be pushed first; a healthcheck in
-exec form comes back as `--health-cmd`, which runs it through `/bin/sh`, so the
-image needs one. The contents of named volumes and of a machine's writable layer
-stay behind, and so do the addresses nspawn handed out: volumes are seeded again
+to exist there; an image made here has to be pushed first, or carried over
+with `save` and `load`; a healthcheck in exec form comes back as
+`--health-cmd`, which runs it through `/bin/sh`, so the image needs one. The
+contents of named volumes and of a machine's writable layer stay behind
+(`commit` makes an image of the writable layer, which goes the way of any image
+made here), and so do the addresses nspawn handed out: volumes are seeded again
 from the image, and only addresses fixed with `--ip` come along.

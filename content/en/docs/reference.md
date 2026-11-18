@@ -3,7 +3,7 @@ title: Command reference
 linkTitle: Reference
 weight: 10
 description: >-
-  Every command and option of nspawn 3.2.0.
+  Every command and option of nspawn 3.3.0.
 ---
 
 `nspawn --help` and `nspawn COMMAND --help` list the options; this page
@@ -36,21 +36,21 @@ last one made of several: `busybox:1.37`, `docker.io/library/busybox:1.37` and
 `busybox-1.37`, the name it was pulled under, are one image to `run`, `create`,
 `push`, `rm`, `images rm`, `inspect`, `images inspect`, `start`, `exec`,
 `logs`, `network connect` and the rest. The commands that take an image,
-`run`, `create`, `push`, `images rm` and `images inspect`, read a name nothing
-here has as a reference too: `nspawn run busybox` and `nspawn images rm
+`run`, `create`, `push`, `save`, `images rm` and `images inspect`, read a name
+nothing here has as a reference too: `nspawn run busybox` and `nspawn images rm
 busybox` take the image of `busybox:latest`, whatever its name. The MACHINE of
 `cp`'s MACHINE:PATH is a name.
 
 A reference never names a machine made from the image, which has a name of its
 own: `rm nginx:latest` removes the image and leaves the machines made from it,
 and `stop nginx:latest` stops none. Where the image is only read (`inspect`,
-`images inspect`, `push`), a machine made from it holds it too and is taken
-when no image of it is left. A text that names nothing here is refused by the
-command (a reference in full under `--registry`, when it is given): a reference
-of no image here is `no local image of REFERENCE` to
-`images rm`, `images inspect`, `push` and `run --pull never`, and `no machine or
-image of REFERENCE` to the commands that take a machine (`rm`, `inspect`,
-`stop`, `exec`, `logs` and the rest; `start` adds how to pull it).
+`images inspect`, `push`, `save`), a machine made from it holds it too and is
+taken when no image of it is left. A text that names nothing here is refused by
+the command (a reference in full under `--registry`, when it is given): a
+reference of no image here is `no local image of REFERENCE` to `images rm`,
+`images inspect`, `push` and `run --pull never`, and `no machine or image of
+REFERENCE` to the commands that take a machine (`rm`, `inspect`, `stop`,
+`exec`, `logs` and the rest; `start` adds how to pull it).
 
 ## Global options
 
@@ -260,6 +260,116 @@ stored for it. `IMAGE` is a local image's name or its reference (see
 recorded for the image. The destination needs a tag, not a digest. On a
 terminal a bar shows how far each blob got, as with `pull`.
 
+## save
+
+```text
+nspawn save IMAGE... [-o FILE]
+```
+
+Writes images to one tar archive, on standard output or into a file; a terminal
+is refused. The archive is an OCI image layout (`oci-layout`, `index.json`,
+`blobs/sha256/`) with the `manifest.json` of the Docker image archive beside it,
+so that [load](#load) and `docker load` both read it. Each image goes under its
+reference, its manifest, config and layers as the store keeps them: a pulled
+image keeps the digests its registry gave it, and nothing is compressed again.
+An image pulled by its digest alone is refused, as an archive names an image by
+a tag. `IMAGE` is a local image's name or its reference (see [Names](#names)).
+
+| Option | Meaning |
+| --- | --- |
+| `-o`, `--output FILE` | Write the archive into this file rather than on standard output. |
+
+## load
+
+```text
+nspawn load [-i FILE] [-q]
+```
+
+Adds the images of an archive `save` or `docker save` wrote, read from standard
+input or from a file, plain or compressed with gzip, zstd or bzip2: an OCI image
+layout, whose index names the images (from an index of several platforms, the
+image of the best platform this host runs), or a Docker image archive, whose
+`manifest.json` names them. A name without a registry is Docker Hub's, but for
+one under the configured registry where its host has no dot or port. The whole
+archive is checked before an image is installed: the blobs against their
+digests, the platform, a name for every image (an image `docker save` wrote by
+its ID alone has none, and is refused). Each image goes under the name its
+reference gives, as `build -t` places one: an image of the same reference that
+never ran gives way, and a machine or an image of another reference keeps the
+name while the new image goes beside it. Prints `Loaded image: REFERENCE` for
+each.
+
+| Option | Meaning |
+| --- | --- |
+| `-i`, `--input FILE` | Read the archive from this file rather than from standard input. |
+| `-q`, `--quiet` | Print only the images loaded. |
+
+## commit
+
+```text
+nspawn commit MACHINE REPOSITORY[:TAG] [-a AUTHOR] [-m MESSAGE] [-c INSTRUCTION]... [--pause=BOOL]
+```
+
+Makes an image of what a machine changed over its image: the image's layers and
+one more with the changes, and the image's settings with the machine's on top
+(environment, entrypoint and command when given, user, working directory, stop
+signal, labels but the ones that place a machine in a compose project,
+healthcheck flags, and its published ports as exposed ones). The image boots,
+or runs its command, as the machine does, unless `-c` gives it another
+entrypoint or command. `REPOSITORY[:TAG]` is placed as [load](#load) places an
+image, and `commit` prints the image's ID.
+
+The new layer holds what the machine itself changed, owned as the image owns
+its files whatever user namespace the machine runs in. Volumes, binds and tmpfs
+stay out, and so does what nspawn and systemd-nspawn make for the machine:
+`/etc/hosts`, `/etc/resolv.conf`, `/etc/hostname`, `/etc/machine-id` and
+`/etc/localtime` keep the image's version, and the empty files and directories
+made to mount something on, the links to `/usr` (`/sbin`, `/lib64`) an image
+without them gets and the journal directory of the machine's ID are left out.
+Overlay and flat machines can be committed; an mstack machine is refused, since
+its root exists only inside it while it runs. A flat machine's changes are
+found by comparing its whole tree with the image's layers.
+
+| Option | Meaning |
+| --- | --- |
+| `-a`, `--author AUTHOR` | The image's author. |
+| `-m`, `--message MESSAGE` | The comment of the image's history entry. |
+| `-c`, `--change INSTRUCTION` | A Dockerfile instruction that sets the image's settings: `CMD`, `ENTRYPOINT`, `ENV`, `EXPOSE`, `HEALTHCHECK`, `LABEL`, `ONBUILD`, `STOPSIGNAL`, `USER`, `VOLUME` or `WORKDIR`. Repeatable. |
+| `-p`, `--pause[=BOOL]` | Freeze a running machine while its files are read, and thaw it after (the next start of the service does, should it end in between). Default: `true`. With `--pause=false` it runs on: what it removes meanwhile is left out, and a file whose size changes while it is read goes in at the size it had, cut or filled with zeros. |
+
+## export
+
+```text
+nspawn export MACHINE [-o FILE]
+```
+
+Writes a machine's whole tree as a tar, on standard output or into a file,
+owned as its image owns its files, without its volumes, binds and tmpfs; a
+terminal is refused. A running machine runs on, as for `commit --pause=false`.
+mstack machines are refused, as by `commit`.
+
+| Option | Meaning |
+| --- | --- |
+| `-o`, `--output FILE` | Write the archive into this file rather than on standard output. |
+
+## import
+
+```text
+nspawn import FILE|- REPOSITORY[:TAG] [-m MESSAGE] [-c INSTRUCTION]...
+```
+
+Makes an image of one layer from the tar of a root filesystem, plain or
+compressed with gzip, zstd or bzip2, for this host's platform, placed as
+[commit](#commit) places one, and prints its ID. A tar that ends before its end
+(a stream cut short) is refused. Without a `CMD` or an `ENTRYPOINT`, a machine
+of it needs its command given to `run`.
+
+| Option | Meaning |
+| --- | --- |
+| `FILE\|-` | The tar archive, `-` for standard input. |
+| `-m`, `--message MESSAGE` | The comment of the image's history entry. |
+| `-c`, `--change INSTRUCTION` | As for [commit](#commit). |
+
 ## images
 
 Manage local images; without a subcommand, list them. `image` is the same
@@ -273,7 +383,8 @@ nspawn images [--json]
 ```
 
 Lists the local images known to systemd-machined: name, type, and for the ones
-nspawn installed the backend, origin (`pull`, `build` or `create`), source
+nspawn installed the backend, origin (`pull`, `build`, `commit`, `load`,
+`import` or `create`), source
 reference, size and whether the image is read-only. `--json` prints the list as
 the service returns it. `images list` is an alias, and `images` without a
 subcommand prints the same list.
@@ -418,11 +529,12 @@ are not named. An image without flags of its own is pulled again instead,
 unless another machine takes its network. Without names it covers every
 machine nspawn has. What a flag cannot carry is said in comments at the top:
 secrets, encrypted for this host, which `nspawn secret create` makes again on
-the other one; host directories a machine mounts; images built on this host,
-which have to be pushed first; a healthcheck in exec form, which comes back as
-`--health-cmd`. The contents of volumes and of a machine's writable layer, and
-the addresses the bridge handed out, stay behind; an address fixed with `--ip`
-comes along. See
+the other one; host directories a machine mounts; images made on this host
+(built, committed, loaded or imported), which have to be pushed first or
+carried over with [save](#save) and [load](#load); a healthcheck in exec form,
+which comes back as `--health-cmd`. The contents of volumes and of a machine's
+writable layer, and the addresses the bridge handed out, stay behind ([commit](#commit)
+makes an image of the writable layer); an address fixed with `--ip` comes along. See
 [The same machines on another host](/docs/machines/#the-same-machines-on-another-host).
 
 | Option | Meaning |
@@ -535,7 +647,9 @@ the machine goes on should `run` be interrupted. With `--log-driver none` it
 comes straight from the program instead, and nothing is kept. `run` exits with the program's
 exit code, or 128 plus the signal nspawn sent it (130 after Ctrl-C, 137 after
 `kill`); a signal from elsewhere (a crash, a kill from inside, Ctrl-C with `-t`)
-gives 255, or 1 for a program that is PID 1, as systemd-nspawn ends then. Ctrl-C, SIGTERM, SIGHUP and SIGQUIT are passed on to the program; a
+gives 255, or 1 for a program that is PID 1, as systemd-nspawn ends then. It
+exits once the machine is down, the hooks of its unit after the end done, so
+`ps` and `inspect` show it ended right after. Ctrl-C, SIGTERM, SIGHUP and SIGQUIT are passed on to the program; a
 third Ctrl-C within a second leaves the machine running and returns. A booted
 image shows its console until it powers off, and Ctrl-C powers it off.
 
@@ -691,8 +805,10 @@ read from the machine's cgroup and PID namespace.
 nspawn wait NAME...
 ```
 
-Waits for machines to stop and prints each one's exit code, a line per name;
-a machine already stopped gives the code of its last run.
+Waits for machines to stop and prints each one's exit code, a line per name,
+once the machine is down: the hooks of its unit after the end are done, so `ps`
+and `inspect` show it ended. A machine already stopped gives the code of its
+last run.
 
 ## port
 
@@ -713,7 +829,9 @@ nspawn cp SOURCE MACHINE:PATH
 
 Copies files and directories between the host and a machine.
 The machine may be running, or stopped if it is an overlay or flat
-machine; a stopped mstack machine has no tree on the host until it runs.
+machine; a stopped mstack machine has no tree on the host until it runs, and a
+machine systemd is starting (`machinectl start`, the dependency of another
+machine) is refused until it runs.
 
 - An existing directory as the destination receives the source under its own
   name; anything else is the name of the copy, whose parent must exist. A
@@ -782,8 +900,8 @@ image their tag points to now: each is made anew with
 every option it had, and put back on the old image when it does not come up
 (healthy, with a healthcheck). Prints a table, `UNIT CONTAINER IMAGE
 POLICY UPDATED`, with `false`, `pending`, `true`, `failed`, `rolled back` or
-`skipped`, and fails when a machine failed or went back. Built images,
-references pinned by digest, `run --rm` machines, booted, flat and mstack
+`skipped`, and fails when a machine failed or went back. Images made on this
+host (built, committed, loaded or imported), references pinned by digest, `run --rm` machines, booted, flat and mstack
 machines, and machines whose image declares a volume none of their own volumes
 covers are `skipped`; the reason goes to standard error for a machine named on
 the command line, and is in `--json` always. See
@@ -804,8 +922,8 @@ Reports what happens to machines, networks, volumes and secrets:
 for machines `start`, `die` (with its exit code), `stop`,
 `restart`, `oom` and `fail`, which systemd logs for every machine however it
 was started, `health_status` (with the new status) and what nspawn does,
-`pull`, `build`, `create`, `push`, `kill`, `update`, `pause`, `unpause`,
-`auto-update` and `remove`; for networks `create`, `remove`, `connect` and
+`pull`, `build`, `commit`, `load`, `import`, `create`, `push`, `kill`,
+`update`, `pause`, `unpause`, `auto-update` and `remove`; for networks `create`, `remove`, `connect` and
 `disconnect`; for volumes and secrets `create` and `remove`. It reads the journal, so
 past events can be read back.
 

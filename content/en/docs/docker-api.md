@@ -122,16 +122,26 @@ The runner runs as root, or as a user that a polkit rule lets through.
   a copy to or from it is refused until it starts.
 - Images: list, inspect, history, pull (`POST /images/create`), remove and prune.
   A record pulled or built that never ran is an image, not a container; a machine
-  made from it is a container. An image's ID is its config's digest. An image built
+  made from it is a container. An image's ID is its config's digest. An image made
   here with a name without a registry (`nspawn build -t somos/app:1`, which nspawn
   files as `hub.nspawn.org/somos/app:1`) goes by that short name too while Docker
   Hub's image of it is not here, so `docker run somos/app:1` finds it.
+- Archives: `docker save` and `docker load` (`GET /images/get`, `GET
+  /images/{name}/get`, `POST /images/load`) write and read the archive of
+  [nspawn save](/docs/reference/#save) and [load](/docs/reference/#load);
+  `docker commit` and `docker export` (`POST /commit`, `GET
+  /containers/{id}/export`) commit and export a container as nspawn does, and
+  `docker import` (`POST /images/create` with `fromSrc=-`) imports the tar in the
+  request. A commit names its image as the engine's clients do, one without a
+  registry being Docker Hub's, and a config in its body that sets anything is
+  refused with 400, as is a commit without a repository; an import from a URL
+  answers 501.
 - Volumes and networks: list, inspect, create, remove and prune; connect and
   disconnect with aliases and fixed addresses. `bridge`, `host` and `none` are the
   pre-defined networks.
 
-Builds, loads, imports, tags, pushes and commits of images, container renames and
-exports, swarm and plugins answer 501 with "not supported".
+Builds, tags and pushes of images, container renames, swarm and plugins answer
+501 with "not supported".
 
 A name the API takes that is no machine name, such as `reaper_1`, stays the
 container's name in the API, and its machine gets one made of it (`reaper-1-` and

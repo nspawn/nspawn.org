@@ -5,7 +5,7 @@ weight: 3
 description: >-
   Image references, the hub and Docker Hub, search and credentials, what pull
   does, the storage backends, boot and app detection, more machines from one
-  image, and where everything lives on disk.
+  image, images without a registry, and where everything lives on disk.
 ---
 
 ## References
@@ -287,6 +287,59 @@ before anything is made, so a refused `create` leaves nothing behind.
 `pull --name` also makes another machine of an image, but resolves the manifest
 through the registry first.
 
+## Images without a registry
+
+```text
+$ sudo nspawn commit web somos/web:2 -m "the site's content"
+committing web
+sha256:053546dc4606b1911aa1cce25bacc5778505984d59a746a15d094f822be7bba0
+$ sudo nspawn save -o web.tar somos/web:2 docker.io/library/nginx:latest
+saving hub.nspawn.org/somos/web:2
+saving docker.io/library/nginx:latest
+```
+
+and on another host:
+
+```text
+$ sudo nspawn load -i web.tar
+Loaded image: hub.nspawn.org/somos/web:2
+Loaded image: docker.io/library/nginx:latest
+```
+
+`save` writes images to one tar archive, an OCI image layout with the
+`manifest.json` of the Docker image archive beside it, so that `nspawn load` and
+`docker load` both read it; the layers go as the store keeps them, so a pulled
+image keeps the digests its registry gave it. An image is named by its local
+name or its reference, and a machine made from it holds it when no image of it
+is left, as `web` holds nginx's above. `load` adds the images of such an
+archive or of one `docker save` wrote, plain or compressed with gzip, zstd or
+bzip2, after checking the whole archive, each under the name its reference
+gives.
+
+`commit` makes an image of what a machine changed over its image, with the
+machine's settings on top of the image's; `-c` sets more of them with
+Dockerfile instructions. A running machine is frozen while its files are read.
+The new layer is owned as the image owns its files, whatever user namespace
+the machine runs in, and leaves out volumes, binds and tmpfs and what nspawn and
+systemd-nspawn write for the machine (`/etc/hosts`, `/etc/resolv.conf`,
+`/etc/hostname`, `/etc/machine-id`, `/etc/localtime`). `export` writes a
+machine's whole tree as a tar, and `import` makes an image of one layer from
+such a tar:
+
+```text
+$ sudo nspawn export web -o web-files.tar
+exporting web
+$ sudo nspawn import web-files.tar somos/web-flat:1 -c 'CMD ["nginx", "-g", "daemon off;"]'
+importing hub.nspawn.org/somos/web-flat:1
+sha256:71968e5e84aad873c27ab57eea0f5468c0f49ad7fa7f209df918de966586c63f
+```
+
+An image committed, loaded or imported is made on this host, as a built one
+is: [auto-update](/docs/docker-api/#auto-update) leaves it alone, and
+[generate](/docs/machines/#the-same-machines-on-another-host) says to push it,
+or carry it over with `save` and `load`, before its script runs elsewhere. See
+the [reference](/docs/reference/#save) for every option.
+
 ## Listing and removing
 
 ```shell
@@ -303,7 +356,7 @@ sudo nspawn images ls
 
 The list comes from systemd-machined, so it includes images nspawn did not
 create (`old-arch` above, with `-` in the nspawn columns). `ORIGIN` is `pull`,
-`build` or `create`.
+`build`, `commit`, `load`, `import` or `create`.
 
 ```shell
 sudo nspawn images rm NAME|REFERENCE...

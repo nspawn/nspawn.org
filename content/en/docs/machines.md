@@ -365,7 +365,14 @@ good too, but does not take an `unless-stopped` one off the boot list. A
 
 `-m`/`--memory` (`512m`, `2g`), `--cpus` (`0.5`, `2`) and `--pids-limit` bound
 the whole machine: they are the MemoryMax=, CPUQuota= and TasksMax= of its
-unit, which is why nothing inside shows them. `--memory` also
+unit, which is why nothing inside shows them: systemd-nspawn runs the program
+in a cgroup below its unit's, the root of the machine's cgroup namespace,
+where `/sys/fs/cgroup/memory.max`, `memory.swap.max`, `cpu.max` and
+`pids.max` read `max`. The kernel holds the machine to the limits all the
+same, but a program that sizes itself from those files, as Node.js and the
+JVM do, takes the host's memory and CPUs for its own and runs into the limit:
+give it its size, such as `--max-old-space-size` for Node.js or `-Xmx` and
+`-XX:ActiveProcessorCount` for a JVM. `--memory` also
 lets the machine use as much swap again (MemorySwapMax=), and no more, unless
 `--memory-swap` gives memory and swap together: equal to
 `--memory` for no swap, larger for the difference, `-1` for swap without a
@@ -516,7 +523,9 @@ its unit:
   `--interface` keeps `NET_ADMIN` on its own; a name that is no capability is
   refused. `--cap-drop ALL --cap-add
   NET_BIND_SERVICE` keeps NET_BIND_SERVICE alone, and
-  `--privileged` keeps every one.
+  `--privileged` keeps every one. Whatever the set, a program may lock memory
+  (mlock, mlockall) up to its memlock limit, 8 MiB under systemd's default,
+  which `--ulimit memlock=` changes.
 - `--read-only`: the root read-only. `--tmpfs PATH[:OPTIONS]`: an empty tmpfs
   at a path (`size=64m`, `mode=0700`; 1777 when given without options),
   which is how a read-only machine still writes `/tmp` or

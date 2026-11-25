@@ -193,7 +193,10 @@ runs. It then downloads every layer and the config blob that
 is not already in the store, three at a time, each checked
 against its sha256 digest while it streams: a blob is written next to its final
 name and renamed only once verified, so an interrupted download never passes for
-a complete one, and a download cut short takes its part file with it. It says of
+a complete one, and a download cut short takes its part file with it. A registry
+that answers it is busy, with 429 Too Many Requests or a 5xx error, is asked again
+after 1, 2, 4 and 8 seconds before the pull gives up and says so; any other refusal
+ends it at once. It says of
 each blob when it is downloaded, and then:
 
 1. assembles the root file system with the chosen [backend](#backends): every
